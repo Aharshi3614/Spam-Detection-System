@@ -10,24 +10,27 @@ import {
 } from "react-native";
 import axios from "axios";
 
-const LABEL_MAP: Record<number, { label: string; emoji: string; color: string }> = {
-  0: { label: "Safe Message",  emoji: "✅", color: "#15803d" },
-  1: { label: "Spam Detected", emoji: "❌", color: "#dc2626" },
-  2: { label: "Fraud Alert",   emoji: "⚠️", color: "#ea580c" },
+const LABEL_MAP: Record<
+  string,
+  { label: string; emoji: string; color: string }
+> = {
+  ham: { label: "Safe Message", emoji: "✅", color: "#15803d" },
+  spam: { label: "Spam Detected", emoji: "❌", color: "#dc2626" },
+  smishing: { label: "Fraud Alert", emoji: "⚠️", color: "#ea580c" },
 };
 
 export default function Index() {
   const [text, setText] = useState("");
   const [result, setResult] = useState<number | string>("");
   const [loading, setLoading] = useState(false);
-  const [type, setType] = useState("message"); 
-  const resultInfo = typeof result === "number" ? LABEL_MAP[result] ?? null : null;
-  
+  const [type, setType] = useState("message");
+  const resultInfo =
+    typeof result === "string" ? (LABEL_MAP[result] ?? null) : null;
 
-const API_URL =
-  Platform.OS === "android"
-    ? process.env.EXPO_PUBLIC_ANDROIDAPI ?? ""
-    : process.env.EXPO_PUBLIC_IOSAPI  ?? "";
+  const API_URL =
+    Platform.OS === "android"
+      ? (process.env.EXPO_PUBLIC_ANDROIDAPI ?? "")
+      : (process.env.EXPO_PUBLIC_IOSAPI ?? "");
 
   const handlePredict = async () => {
     if (!text) {
@@ -41,7 +44,7 @@ const API_URL =
 
       const res = await axios.post(API_URL, {
         text: text,
-        type: type, 
+        type: type,
       });
 
       setResult(res.data.prediction);
@@ -57,7 +60,6 @@ const API_URL =
     <View style={styles.container}>
       <Text style={styles.title}>Spam Detection</Text>
 
-      
       <View style={styles.selectorContainer}>
         <TouchableOpacity
           style={[
@@ -84,10 +86,7 @@ const API_URL =
           onPress={() => setType("email")}
         >
           <Text
-            style={[
-              styles.selectorText,
-              type === "email" && styles.activeText,
-            ]}
+            style={[styles.selectorText, type === "email" && styles.activeText]}
           >
             Email
           </Text>
@@ -109,16 +108,27 @@ const API_URL =
       {loading && <ActivityIndicator size="large" />}
 
       {resultInfo ? (
-  <View style={[styles.resultBox, { borderColor: resultInfo.color, backgroundColor: resultInfo.color + "18" }]}>
-    <Text style={[styles.resultEmoji]}>{resultInfo.emoji}</Text>
-    <Text style={[styles.resultLabel, { color: resultInfo.color }]}>{resultInfo.label}</Text>
-  </View>
-) : result === "Enter some text" ? (
-  <Text style={styles.resultError}>Please enter a message first.</Text>
-) : result !== "" ? (
-  <Text style={styles.resultError}>Error: could not classify message.</Text>
-) : null}
-
+        <View
+          style={[
+            styles.resultBox,
+            {
+              borderColor: resultInfo.color,
+              backgroundColor: resultInfo.color + "18",
+            },
+          ]}
+        >
+          <Text style={[styles.resultEmoji]}>{resultInfo.emoji}</Text>
+          <Text style={[styles.resultLabel, { color: resultInfo.color }]}>
+            {resultInfo.label}
+          </Text>
+        </View>
+      ) : result === "Enter some text" ? (
+        <Text style={styles.resultError}>Please enter a message first.</Text>
+      ) : result !== "" ? (
+        <Text style={styles.resultError}>
+          Error: could not classify message.
+        </Text>
+      ) : null}
     </View>
   );
 }
