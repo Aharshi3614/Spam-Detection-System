@@ -6,6 +6,7 @@ import Register from "./Register.jsx";
 import api from "../utils/axiosInstance";
 import "../App.css";
 import { useNavigate } from "react-router-dom";
+import FeatureImportance from "../components/FeatureImportance";
 
 function App() {
   const [text, setText] = useState("");
@@ -170,11 +171,13 @@ const logout = () => {
           >
             Reset
           </button>
+
+          <FeatureImportance darkMode={darkMode} />
+
         </div>
       </div>
     </div>
   );
 }
-
 
 export default App;
