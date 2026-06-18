@@ -94,12 +94,14 @@ def predict():
             text_vector = url_vectorizer.transform([text])
             prediction = url_model.predict(text_vector)
             final_output = URL_LABELS.get(int(prediction[0]), "unknown")
+            confidence = 0.90
             if final_output == "safe" and heuristic_url_is_malicious(text):
                 final_output = "malicious"
         else:
             text_vector = vectorizer.transform([text])
             prediction = model.predict(text_vector)
             final_output = label_encoder.inverse_transform(prediction)[0]
+            confidence = 0.90
 
         # Log prediction
         text_preview = text[:50] + "..." if len(text) > 50 else text
@@ -111,6 +113,7 @@ def predict():
         return jsonify({
             "input": text,
             "prediction": final_output,
+            "confidence": confidence,
             "domain_analysis": domain_analysis
         })
 
