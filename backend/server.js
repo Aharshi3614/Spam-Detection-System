@@ -5,6 +5,9 @@ const express = require("express");
 const cors = require("cors");
 const axios = require("axios");
 const mongoose = require("mongoose");
+
+const History = require("./models/History");
+
 const multer = require("multer");
 const upload = multer();
 const FormData = require("form-data");
@@ -20,9 +23,11 @@ mongoose
 app.use(cors());
 app.use(express.json());
 
-// Auth routes
+// Auth routes , History routes
 const authRoutes = require("./routes/authRoutes");
+const historyRoutes = require("./routes/historyRoutes");
 app.use("/api/auth", authRoutes);
+app.use("/api/history", historyRoutes);
 
 const { protect } = require("./middleware/authMiddleware");
 
@@ -33,7 +38,9 @@ app.get("/", (req, res) => {
 // Protected: only authenticated users can predict
 app.post("/predict", protect, async (req, res) => {
   try {
+    console.log("Reached /predict");
     const { text, type } = req.body;
+    console.log("Received:", text, type);
 
     // Check 1: fields must exist
     if (!text || !type) {
@@ -47,11 +54,15 @@ app.post("/predict", protect, async (req, res) => {
 
     // Check 3: must not be empty or only whitespace
     if (text.trim().length === 0) {
-      return res.status(400).json({ error: "Text must not be empty or whitespace." });
+      return res
+        .status(400)
+        .json({ error: "Text must not be empty or whitespace." });
     }
 
     // Check 4: validate type is one of the accepted values
+
     const allowedTypes = ["sms", "email", "url", "message"];
+
     if (!allowedTypes.includes(type.toLowerCase())) {
       return res.status(400).json({
         error: `Invalid type. Allowed values are: ${allowedTypes.join(", ")}.`,
@@ -59,15 +70,30 @@ app.post("/predict", protect, async (req, res) => {
     }
 
     // Check 5: validate text length
-     if (text.trim().length > 5000) {
+    if (text.trim().length > 5000) {
       return res.status(413).json({
-        error: "Text payload exceeds maximum allowed length of 5000 characters.",
+        error:
+          "Text payload exceeds maximum allowed length of 5000 characters.",
       });
     }
 
-    const response = await axios.post(process.env.API || "http://localhost:5000/predict", {
-      text: text.trim(),
-      type: type.toLowerCase(),
+    console.log("Calling Flask...");
+
+    const response = await axios.post(
+      process.env.API || "http://localhost:5000/predict",
+      {
+        text: text.trim(),
+        type: type.toLowerCase(),
+      },
+    );
+    console.log("Flask responded:", response.data);
+
+    // Save history automatically
+    await History.create({
+      user: req.user.id,
+      query: text,
+      prediction: response.data.prediction,
+      type: type,
     });
 
     res.json(response.data);
@@ -77,8 +103,12 @@ app.post("/predict", protect, async (req, res) => {
   }
 });
 
+console.log("History saved");
+
 // Protected: record user feedback on a prediction (forwarded to the ML API)
-const ML_API_BASE = (process.env.API || "http://localhost:5000/predict").replace(/\/predict$/, "");
+const ML_API_BASE = (
+  process.env.API || "http://localhost:5000/predict"
+).replace(/\/predict$/, "");
 
 app.post("/feedback", protect, async (req, res) => {
   try {
@@ -107,61 +137,79 @@ app.post("/feedback", protect, async (req, res) => {
 });
 
 // Protected: analyze email headers for authenticity (forwarded to ML API)
-app.post("/analyze-email-header", protect, upload.single("file"), async (req, res) => {
-  try {
-    if (req.file) {
-      // Check file size (2MB limit)
-      if (req.file.size > 2 * 1024 * 1024) {
-        return res.status(413).json({ error: "File size exceeds limit of 2MB" });
+app.post(
+  "/analyze-email-header",
+  protect,
+  upload.single("file"),
+  async (req, res) => {
+    try {
+      if (req.file) {
+        // Check file size (2MB limit)
+        if (req.file.size > 2 * 1024 * 1024) {
+          return res
+            .status(413)
+            .json({ error: "File size exceeds limit of 2MB" });
+        }
+
+        const form = new FormData();
+        form.append("file", req.file.buffer, {
+          filename: req.file.originalname,
+          contentType: req.file.mimetype,
+        });
+
+        const response = await axios.post(
+          `${ML_API_BASE}/analyze-email-header`,
+          form,
+          {
+            headers: {
+              ...form.getHeaders(),
+            },
+          },
+        );
+        return res.json(response.data);
+      } else {
+        const { headers } = req.body;
+
+        if (!headers) {
+          return res.status(400).json({ error: "Email headers are required" });
+        }
+
+        if (typeof headers !== "string") {
+          return res
+            .status(400)
+            .json({ error: "Email headers must be a string." });
+        }
+
+        if (headers.trim().length === 0) {
+          return res
+            .status(400)
+            .json({ error: "Email headers must not be empty." });
+        }
+
+        const response = await axios.post(
+          `${ML_API_BASE}/analyze-email-header`,
+          {
+            headers: headers,
+          },
+        );
+        return res.json(response.data);
       }
-
-      const form = new FormData();
-      form.append("file", req.file.buffer, {
-        filename: req.file.originalname,
-        contentType: req.file.mimetype,
-      });
-
-      const response = await axios.post(`${ML_API_BASE}/analyze-email-header`, form, {
-        headers: {
-          ...form.getHeaders(),
-        },
-      });
-      return res.json(response.data);
-    } else {
-      const { headers } = req.body;
-
-      if (!headers) {
-        return res.status(400).json({ error: "Email headers are required" });
+    } catch (error) {
+      if (error.code === "ECONNREFUSED" || error.code === "ENOTFOUND") {
+        console.error("Flask ML API is unavailable:", error.message);
+        return res.status(503).json({
+          error:
+            "Flask ML API is currently unavailable. Please try again later.",
+        });
       }
-
-      if (typeof headers !== "string") {
-        return res.status(400).json({ error: "Email headers must be a string." });
+      if (error.response) {
+        return res.status(error.response.status).json(error.response.data);
       }
-
-      if (headers.trim().length === 0) {
-        return res.status(400).json({ error: "Email headers must not be empty." });
-      }
-
-      const response = await axios.post(`${ML_API_BASE}/analyze-email-header`, {
-        headers: headers,
-      });
-      return res.json(response.data);
+      console.error(error.message);
+      res.status(500).json({ error: "Something went wrong" });
     }
-  } catch (error) {
-    if (error.code === "ECONNREFUSED" || error.code === "ENOTFOUND") {
-      console.error("Flask ML API is unavailable:", error.message);
-      return res.status(503).json({
-        error: "Flask ML API is currently unavailable. Please try again later.",
-      });
-    }
-    if (error.response) {
-      return res.status(error.response.status).json(error.response.data);
-    }
-    console.error(error.message);
-    res.status(500).json({ error: "Something went wrong" });
-  }
-});
-
+  },
+);
 
 // Protected: Bulk prediction
 app.post("/bulk-predict", protect, upload.single("file"), async (req, res) => {
@@ -204,58 +252,78 @@ app.post("/bulk-predict", protect, upload.single("file"), async (req, res) => {
 });
 
 // Protected: Export bulk predictions as CSV
-app.post("/bulk-predict/export", protect, upload.single("file"), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: "No file uploaded" });
-    }
-
-    // Check file size
-    if (req.file.size > 2 * 1024 * 1024) {
-      return res.status(413).json({ error: "File size exceeds limit of 2MB" });
-    }
-
-    const form = new FormData();
-    form.append("file", req.file.buffer, {
-      filename: req.file.originalname,
-      contentType: req.file.mimetype,
-    });
-
-    const response = await axios.post(`${ML_API_BASE}/bulk-predict/export`, form, {
-      headers: {
-        ...form.getHeaders(),
-      },
-      responseType: "stream",
-    });
-
-    res.setHeader("Content-Type", response.headers["content-type"] || "text/csv");
-    if (response.headers["content-disposition"]) {
-      res.setHeader("Content-Disposition", response.headers["content-disposition"]);
-    } else {
-      res.setHeader("Content-Disposition", 'attachment; filename="bulk_spam_predictions.csv"');
-    }
-
-    response.data.pipe(res);
-  } catch (error) {
-    if (error.code === "ECONNREFUSED" || error.code === "ENOTFOUND") {
-      console.error("Flask ML API is unavailable:", error.message);
-      return res.status(503).json({
-        error: "Flask ML API is currently unavailable. Please try again later.",
-      });
-    }
-    if (error.response) {
-      if (typeof error.response.data.pipe === "function") {
-        res.status(error.response.status);
-        error.response.data.pipe(res);
-        return;
+app.post(
+  "/bulk-predict/export",
+  protect,
+  upload.single("file"),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
       }
-      return res.status(error.response.status).json(error.response.data);
-    }
-    console.error(error.message);
-    res.status(500).json({ error: "Something went wrong" });
-  }
-});
 
+      // Check file size
+      if (req.file.size > 2 * 1024 * 1024) {
+        return res
+          .status(413)
+          .json({ error: "File size exceeds limit of 2MB" });
+      }
+
+      const form = new FormData();
+      form.append("file", req.file.buffer, {
+        filename: req.file.originalname,
+        contentType: req.file.mimetype,
+      });
+
+      const response = await axios.post(
+        `${ML_API_BASE}/bulk-predict/export`,
+        form,
+        {
+          headers: {
+            ...form.getHeaders(),
+          },
+          responseType: "stream",
+        },
+      );
+
+      res.setHeader(
+        "Content-Type",
+        response.headers["content-type"] || "text/csv",
+      );
+      if (response.headers["content-disposition"]) {
+        res.setHeader(
+          "Content-Disposition",
+          response.headers["content-disposition"],
+        );
+      } else {
+        res.setHeader(
+          "Content-Disposition",
+          'attachment; filename="bulk_spam_predictions.csv"',
+        );
+      }
+
+      response.data.pipe(res);
+    } catch (error) {
+      if (error.code === "ECONNREFUSED" || error.code === "ENOTFOUND") {
+        console.error("Flask ML API is unavailable:", error.message);
+        return res.status(503).json({
+          error:
+            "Flask ML API is currently unavailable. Please try again later.",
+        });
+      }
+      if (error.response) {
+        if (typeof error.response.data.pipe === "function") {
+          res.status(error.response.status);
+          error.response.data.pipe(res);
+          return;
+        }
+        return res.status(error.response.status).json(error.response.data);
+      }
+      console.error(error.message);
+      res.status(500).json({ error: "Something went wrong" });
+    }
+  },
+);
 
 // Protected: Get spam pattern insights & analytics (forwarded to ML API)
 app.get("/spam-insights", protect, async (req, res) => {
@@ -264,7 +332,7 @@ app.get("/spam-insights", protect, async (req, res) => {
     const category = req.query.category || "";
 
     const response = await axios.get(`${ML_API_BASE}/spam-insights`, {
-      params: { limit, category }
+      params: { limit, category },
     });
 
     res.json(response.data);
@@ -283,15 +351,14 @@ app.get("/spam-insights", protect, async (req, res) => {
   }
 });
 
-
 // Protected: Get Gmail auth URL
 app.get("/gmail/auth-url", protect, async (req, res) => {
   try {
     const response = await axios.get(`${ML_API_BASE}/gmail/auth-url`, {
       params: req.query,
       headers: {
-        "X-User-Username": req.user.username
-      }
+        "X-User-Username": req.user.username,
+      },
     });
     res.json(response.data);
   } catch (error) {
@@ -333,8 +400,8 @@ app.get("/gmail/connect", protect, async (req, res) => {
     const response = await axios.get(`${ML_API_BASE}/gmail/callback`, {
       params: { code },
       headers: {
-        "X-User-Username": req.user.username
-      }
+        "X-User-Username": req.user.username,
+      },
     });
     res.json(response.data);
   } catch (error) {
@@ -357,8 +424,8 @@ app.get("/gmail/emails", protect, async (req, res) => {
   try {
     const response = await axios.get(`${ML_API_BASE}/gmail/emails`, {
       headers: {
-        "X-User-Username": req.user.username
-      }
+        "X-User-Username": req.user.username,
+      },
     });
     res.json(response.data);
   } catch (error) {
@@ -369,7 +436,8 @@ app.get("/gmail/emails", protect, async (req, res) => {
       });
     }
     if (error.response) {
-      const status = error.response.status === 401 ? 400 : error.response.status;
+      const status =
+        error.response.status === 401 ? 400 : error.response.status;
       return res.status(status).json(error.response.data);
     }
     console.error(error.message);
@@ -383,8 +451,8 @@ app.get("/outlook/auth-url", protect, async (req, res) => {
     const response = await axios.get(`${ML_API_BASE}/outlook/auth-url`, {
       params: req.query,
       headers: {
-        "X-User-Username": req.user.username
-      }
+        "X-User-Username": req.user.username,
+      },
     });
     res.json(response.data);
   } catch (error) {
@@ -426,8 +494,8 @@ app.get("/outlook/connect", protect, async (req, res) => {
     const response = await axios.get(`${ML_API_BASE}/outlook/callback`, {
       params: { code },
       headers: {
-        "X-User-Username": req.user.username
-      }
+        "X-User-Username": req.user.username,
+      },
     });
     res.json(response.data);
   } catch (error) {
@@ -450,8 +518,8 @@ app.get("/outlook/emails", protect, async (req, res) => {
   try {
     const response = await axios.get(`${ML_API_BASE}/outlook/emails`, {
       headers: {
-        "X-User-Username": req.user.username
-      }
+        "X-User-Username": req.user.username,
+      },
     });
     res.json(response.data);
   } catch (error) {
@@ -462,7 +530,8 @@ app.get("/outlook/emails", protect, async (req, res) => {
       });
     }
     if (error.response) {
-      const status = error.response.status === 401 ? 400 : error.response.status;
+      const status =
+        error.response.status === 401 ? 400 : error.response.status;
       return res.status(status).json(error.response.data);
     }
     console.error(error.message);
@@ -475,13 +544,19 @@ app.post("/scan-emails", protect, async (req, res) => {
   try {
     const { provider } = req.body;
     if (!provider || (provider !== "gmail" && provider !== "outlook")) {
-      return res.status(400).json({ error: "Invalid provider. Must be 'gmail' or 'outlook'." });
+      return res
+        .status(400)
+        .json({ error: "Invalid provider. Must be 'gmail' or 'outlook'." });
     }
-    const response = await axios.post(`${ML_API_BASE}/scan-emails`, { provider }, {
-      headers: {
-        "X-User-Username": req.user.username
-      }
-    });
+    const response = await axios.post(
+      `${ML_API_BASE}/scan-emails`,
+      { provider },
+      {
+        headers: {
+          "X-User-Username": req.user.username,
+        },
+      },
+    );
     res.json(response.data);
   } catch (error) {
     if (error.code === "ECONNREFUSED" || error.code === "ENOTFOUND") {
@@ -491,14 +566,14 @@ app.post("/scan-emails", protect, async (req, res) => {
       });
     }
     if (error.response) {
-      const status = error.response.status === 401 ? 400 : error.response.status;
+      const status =
+        error.response.status === 401 ? 400 : error.response.status;
       return res.status(status).json(error.response.data);
     }
     console.error(error.message);
     res.status(500).json({ error: "Something went wrong" });
   }
 });
-
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

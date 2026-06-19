@@ -31,7 +31,11 @@ from email_scanner import scan_emails_with_model
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
+CORS(app, resources={r"/*": {"origins": "*" }})
+
+from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity
+app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "super-secret")
+jwt = JWTManager(app)
 
 MODEL_PATH = os.getenv("MODEL_PATH", "linear_svm_model.pkl")
 VECTORIZER_PATH = os.getenv("VECTORIZER_PATH", "tfidf_vectorizer.pkl")
@@ -92,7 +96,11 @@ def heuristic_url_is_malicious(url):
     return tld in SUSPICIOUS_TLDS
 
 
-FEEDBACK_FILE = "feedback_store.csv"
+OUTPUT_DIR = BASE_DIR / "output"
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+FEEDBACK_FILE = OUTPUT_DIR / "feedback_store.csv"
+LOG_FILE = OUTPUT_DIR / "api.log"
 FEEDBACK_LABELS = set(label_encoder.classes_)
 
 
@@ -109,7 +117,7 @@ def predict():
         
         input_type = data.get("type", "message")
         if not text:
-            with open("api.log", "a") as f:
+            with open(LOG_FILE, "a") as f:
                 f.write(f"WARNING: No text provided at {__import__('datetime').datetime.now()}\n")
             return jsonify({"error": "No text provided"}), 400
 
@@ -159,18 +167,6 @@ def predict():
             level_color = "red"
             level_emoji = "🔴"
 
-        return jsonify({
-            "input": text,
-            "prediction": final_output,
-            "confidence": confidence,
-            "confidence_level": confidence_level,
-            "level_color": level_color,
-            "level_emoji": level_emoji
-        })
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
         # Store words if prediction is spam
         if final_output == "spam":
             words = extract_words(text)
@@ -179,9 +175,10 @@ def predict():
 
         # Log prediction
         text_preview = text[:50] + "..." if len(text) > 50 else text
-        with open("api.log", "a") as f:
+        with open(LOG_FILE, "a") as f:
             from datetime import datetime
             f.write(f"{datetime.now()} - Prediction: '{text_preview}' -> {final_output}\n")
+        feat
             
         return jsonify({
             "input": text, 
@@ -189,14 +186,21 @@ def predict():
         })
     
         # Return response with domain analysis
+
+
+        main
         return jsonify({
             "input": text,
             "prediction": final_output,
+            "confidence": confidence,
+            "confidence_level": confidence_level,
+            "level_color": level_color,
+            "level_emoji": level_emoji,
             "domain_analysis": domain_analysis
         })
 
     except Exception as e:
-        with open("api.log", "a") as f:
+        with open(LOG_FILE, "a") as f:
             from datetime import datetime
             f.write(f"{datetime.now()} - ERROR: {str(e)}\n")
         return jsonify({"error": str(e)}), 500
@@ -347,10 +351,11 @@ def gmail_auth_url():
     return jsonify({"auth_url": url})
 
 @app.route("/gmail/callback", methods=["GET"])
+@jwt_required()
 def gmail_callback():
     code = request.args.get("code")
     redirect_uri = request.args.get("redirect_uri") or "http://localhost:3000/gmail/callback"
-    username = request.headers.get("X-User-Username", "default_user")
+    username = get_jwt_identity()
     
     if not code:
         return jsonify({"error": "Authorization code is missing"}), 400
@@ -365,8 +370,9 @@ def gmail_callback():
         return jsonify({"error": f"Failed to exchange Google code: {str(e)}"}), 500
 
 @app.route("/gmail/emails", methods=["GET"])
+@jwt_required()
 def gmail_emails():
-    username = request.headers.get("X-User-Username", "default_user")
+    username = get_jwt_identity()
     user_tokens = TOKEN_STORE.get(username, {}).get("gmail")
     
     if not user_tokens:
@@ -395,10 +401,11 @@ def outlook_auth_url():
     return jsonify({"auth_url": url})
 
 @app.route("/outlook/callback", methods=["GET"])
+@jwt_required()
 def outlook_callback():
     code = request.args.get("code")
     redirect_uri = request.args.get("redirect_uri") or "http://localhost:3000/outlook/callback"
-    username = request.headers.get("X-User-Username", "default_user")
+    username = get_jwt_identity()
     
     if not code:
         return jsonify({"error": "Authorization code is missing"}), 400
@@ -413,8 +420,9 @@ def outlook_callback():
         return jsonify({"error": f"Failed to exchange Outlook code: {str(e)}"}), 500
 
 @app.route("/outlook/emails", methods=["GET"])
+@jwt_required()
 def outlook_emails():
-    username = request.headers.get("X-User-Username", "default_user")
+    username = get_jwt_identity()
     user_tokens = TOKEN_STORE.get(username, {}).get("outlook")
     
     if not user_tokens:
@@ -437,10 +445,11 @@ def outlook_emails():
         return jsonify({"error": f"Failed to fetch Outlook emails: {str(e)}"}), 500
 
 @app.route("/scan-emails", methods=["POST"])
+@jwt_required()
 def scan_emails_route():
     data = request.get_json(silent=True) or {}
     provider = data.get("provider", "").lower()
-    username = request.headers.get("X-User-Username", "default_user")
+    username = get_jwt_identity()
     
     if provider not in ("gmail", "outlook"):
         return jsonify({"error": "Invalid provider. Must be 'gmail' or 'outlook'."}), 400
