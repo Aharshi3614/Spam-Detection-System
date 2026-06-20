@@ -427,31 +427,6 @@ function SpamDetector() {
                     className={`w-full rounded-full h-3 mb-5 ${
                       isDark ? "bg-slate-700" : "bg-slate-200"
                     }`}/>
-                
-              <textarea
-                className={`w-full border p-3.5 rounded-xl focus:outline-none focus:ring-2 resize-none text-sm sm:text-base transition-all ${
-                  isDark ? activeTheme.inputDark : activeTheme.input
-                }`}
-                rows="4"
-                placeholder={
-                  type === "url"
-                    ? "Enter URL to check..."
-                    : type === "message"
-                      ? "Type your message..."
-                      : "Paste your email content..."
-                }
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-              />
-
-              <button
-                onClick={handlePredict}
-                className={`mt-5 w-full py-3.5 rounded-xl font-bold text-white shadow-md active:scale-95 transition-all ${activeTheme.accent}`}
-              >
-                {loading
-                  ? "Analyzing..."
-                  : `Analyze ${type === "url" ? "URL" : type}`}
-              </button>
 
               {result && (
                 <div className="mt-4 border border-slate-350/20 rounded-2xl p-2 bg-slate-500/5">
@@ -520,9 +495,12 @@ function SpamDetector() {
                     {(result === "ham" || result === "safe") &&
                       "No suspicious patterns were detected in this content."}
                   </p>
+                </div>
+              )}
                 </>
               )}
             </div>
+          )}
 
               {result && result !== "Error" && type !== "url" && (
                 <FeedbackWidget
@@ -561,16 +539,6 @@ function SpamDetector() {
             <EmailHeaderAnalyzer />
           )}
           <WordCloud darkMode={isDark} />
-          <FeatureImportance darkMode={isDark} />
-          </>
-          ) : activeTab === "bulk" ? (
-          <BulkSpamDetection />
-          ) : activeTab === "insights" ? (
-          <SpamInsightsDashboard />
-          ) : activeTab === "scanner" ? (
-          <EmailScannerDashboard />
-          ) : (
-          <EmailHeaderAnalyzer />)}
         </div>
       </div>
     </div>
