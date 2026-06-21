@@ -37,12 +37,30 @@ from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "super-secret")
 jwt = JWTManager(app)
 
-MODEL_PATH = os.getenv("MODEL_PATH", "linear_svm_model.pkl")
-VECTORIZER_PATH = os.getenv("VECTORIZER_PATH", "tfidf_vectorizer.pkl")
-LABEL_ENCODER_PATH = os.getenv("LABEL_ENCODER_PATH", "label_encoder.pkl")
+BASE_DIR = Path(__file__).resolve().parent
 
-if not MODEL_PATH or not VECTORIZER_PATH or not LABEL_ENCODER_PATH:
-    raise ValueError("Required environment variables are missing")
+def resolve_path(env_var, default_filename):
+    val = os.getenv(env_var)
+    if val:
+        p = Path(val)
+        if p.is_absolute():
+            return val
+        if p.exists() and p.stat().st_size > 0:
+            return val
+        p_base = BASE_DIR / p
+        if p_base.exists() and p_base.stat().st_size > 0:
+            return str(p_base)
+        p_name = BASE_DIR / p.name
+        if p_name.exists() and p_name.stat().st_size > 0:
+            return str(p_name)
+        return val
+    return str(BASE_DIR / default_filename)
+
+MODEL_PATH = resolve_path("MODEL_PATH", "linear_svm_model.pkl")
+VECTORIZER_PATH = resolve_path("VECTORIZER_PATH", "tfidf_vectorizer.pkl")
+LABEL_ENCODER_PATH = resolve_path("LABEL_ENCODER_PATH", "label_encoder.pkl")
+URL_MODEL_PATH = resolve_path("URL_MODEL_PATH", "url_detector.pkl")
+URL_VECTORIZER_PATH = resolve_path("URL_VECTORIZER_PATH", "url_vectorizer.pkl")
 
 model = joblib.load(MODEL_PATH)
 vectorizer = joblib.load(VECTORIZER_PATH)
@@ -60,16 +78,7 @@ app.label_encoder = label_encoder
 
 from bulk_predict import bulk_predict_bp
 app.register_blueprint(bulk_predict_bp)
-BASE_DIR = Path(__file__).resolve().parent
-URL_MODEL_PATH = os.getenv(
-    "URL_MODEL_PATH",
-    str(BASE_DIR / "url_detector.pkl")
-)
 
-URL_VECTORIZER_PATH = os.getenv(
-    "URL_VECTORIZER_PATH",
-    str(BASE_DIR / "url_vectorizer.pkl")
-)
 url_model = joblib.load(URL_MODEL_PATH)
 url_vectorizer = joblib.load(URL_VECTORIZER_PATH)
 # url_detector.pkl predicts numeric classes with no bundled label encoder
