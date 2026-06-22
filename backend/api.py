@@ -161,13 +161,24 @@ def predict():
 
          # ─── GET CONFIDENCE SCORE ──────────────────────────────────────
         # Get probability/confidence from model
-        confidence=0.95 #default fallback 
+        confidence = 95.0 #default fallback percentage
         try:
+            active_model = url_model if input_type == "url" else model
             # If model has predict_proba
-            if hasattr(model, 'predict_proba'):
-                proba = model.predict_proba(text_vector)
+            if hasattr(active_model, 'predict_proba'):
+                proba = active_model.predict_proba(text_vector)
                 confidence = round(max(proba[0]) * 100, 2)
-        except:
+            elif hasattr(active_model, 'decision_function'):
+                import numpy as np
+                decision = active_model.decision_function(text_vector)
+                if isinstance(decision, np.ndarray):
+                    score = float(np.max(np.abs(decision)))
+                else:
+                    score = float(abs(decision))
+                # Sigmoid mapping to pseudo-probability percentage
+                prob = 1.0 / (1.0 + np.exp(-score))
+                confidence = round(prob * 100, 2)
+        except Exception:
             # Fallback: use a random confidence for demo (or from model)
             # In production, use actual confidence from your model
             import random
