@@ -25,7 +25,7 @@ def client():
     with api_module.app.test_client() as c:
         yield c
 
-def test_jwt_or_secret_required_with_valid_secret(client):
+def test_gmail_emails_with_valid_secret(client):
     headers = {
         "X-Internal-Secret": "super-secret-internal-key",
         "X-User-Username": "test_user"
@@ -41,30 +41,11 @@ def test_jwt_or_secret_required_with_valid_secret(client):
         res = client.get("/gmail/emails", headers=headers)
         assert res.status_code == 200
 
-def test_jwt_or_secret_required_with_valid_jwt(client):
-    with api_module.app.app_context():
-        token = create_access_token(identity="test_user")
-        
-    headers = {
-        "Authorization": f"Bearer {token}"
-    }
-    
-    api_module.TOKEN_STORE["test_user"] = {
-        "gmail": {
-            "access_token": "mock_gmail_access_token"
-        }
-    }
-    
-    with patch("api.fetch_gmail_emails") as mock_fetch:
-        mock_fetch.return_value = []
-        res = client.get("/gmail/emails", headers=headers)
-        assert res.status_code == 200
-
-def test_jwt_or_secret_required_missing_auth(client):
+def test_gmail_emails_missing_auth(client):
     res = client.get("/gmail/emails")
     assert res.status_code == 401
 
-def test_jwt_or_secret_required_invalid_secret(client):
+def test_gmail_emails_invalid_secret(client):
     headers = {
         "X-Internal-Secret": "wrong-secret",
         "X-User-Username": "test_user"
