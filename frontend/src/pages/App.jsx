@@ -542,9 +542,10 @@ function SpamDetector() {
         </div>
       </div>
       </div>
-      <Footer />
-      <Chatbot />
+    <Footer />
+    <Chatbot />
     </div>
+    
   );
 }
 

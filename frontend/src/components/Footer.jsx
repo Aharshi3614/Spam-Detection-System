@@ -13,9 +13,9 @@ export default function Footer() {
 
   return (
     <footer
-      className={`w-full max-w-lg mx-auto mt-6 rounded-3xl border shadow-2xl backdrop-blur-xl p-6 sm:p-8 text-center transition-all duration-500 ${
-        isDark ? activeTheme.cardDark : `${activeTheme.card} backdrop-blur-md`
-      }`}
+      className={`w-full mt-4 p-6 sm:p-8 text-center transition-all duration-500 ${
+    isDark ? activeTheme.cardDark : `${activeTheme.card} backdrop-blur-md`
+  }`}
     >
       <div className="flex items-center justify-center gap-3 mb-3">
         <img src={SpamLogo} alt="Spam Logo" className="w-12 h-10 object-contain" />
@@ -29,7 +29,7 @@ export default function Footer() {
         Threats through intelligent detection and cybersecurity awareness.
       </p>
 
-      <div className="grid grid-cols-2 gap-2 text-[11px] sm:text-xs font-bold mb-5 max-w-xs mx-auto">
+      <div className="grid grid-cols-2 gap-2 text-[11px] sm:text-xs font-bold  max-w-xs mx-auto">
         {FEATURES.map((feature) => (
           <span
             key={feature}
