@@ -425,11 +425,12 @@ def gmail_auth_url():
     return jsonify({"auth_url": url})
 
 @app.route("/gmail/callback", methods=["GET"])
-@jwt_or_secret_required()
 def gmail_callback():
     code = request.args.get("code")
     redirect_uri = request.args.get("redirect_uri") or "http://localhost:3000/gmail/callback"
-    username = get_current_user_identity()
+    username = _require_username()
+    if not username:
+        return jsonify({"error": "Missing X-User-Username header"}), 401
     
     if not code:
         return jsonify({"error": "Authorization code is missing"}), 400
@@ -444,9 +445,10 @@ def gmail_callback():
         return jsonify({"error": f"Failed to exchange Google code: {str(e)}"}), 500
 
 @app.route("/gmail/emails", methods=["GET"])
-@jwt_or_secret_required()
 def gmail_emails():
-    username = get_current_user_identity()
+    username = _require_username()
+    if not username:
+        return jsonify({"error": "Missing X-User-Username header"}), 401
     user_tokens = TOKEN_STORE.get(username, {}).get("gmail")
     
     if not user_tokens:
@@ -475,11 +477,12 @@ def outlook_auth_url():
     return jsonify({"auth_url": url})
 
 @app.route("/outlook/callback", methods=["GET"])
-@jwt_or_secret_required()
 def outlook_callback():
     code = request.args.get("code")
     redirect_uri = request.args.get("redirect_uri") or "http://localhost:3000/outlook/callback"
-    username = get_current_user_identity()
+    username = _require_username()
+    if not username:
+        return jsonify({"error": "Missing X-User-Username header"}), 401
     
     if not code:
         return jsonify({"error": "Authorization code is missing"}), 400
@@ -494,9 +497,10 @@ def outlook_callback():
         return jsonify({"error": f"Failed to exchange Outlook code: {str(e)}"}), 500
 
 @app.route("/outlook/emails", methods=["GET"])
-@jwt_or_secret_required()
 def outlook_emails():
-    username = get_current_user_identity()
+    username = _require_username()
+    if not username:
+        return jsonify({"error": "Missing X-User-Username header"}), 401
     user_tokens = TOKEN_STORE.get(username, {}).get("outlook")
     
     if not user_tokens:
@@ -519,11 +523,12 @@ def outlook_emails():
         return jsonify({"error": f"Failed to fetch Outlook emails: {str(e)}"}), 500
 
 @app.route("/scan-emails", methods=["POST"])
-@jwt_or_secret_required()
 def scan_emails_route():
     data = request.get_json(silent=True) or {}
     provider = data.get("provider", "").lower()
-    username = get_current_user_identity()
+    username = _require_username()
+    if not username:
+        return jsonify({"error": "Missing X-User-Username header"}), 401
     
     if provider not in ("gmail", "outlook"):
         return jsonify({"error": "Invalid provider. Must be 'gmail' or 'outlook'."}), 400
