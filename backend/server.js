@@ -5,6 +5,7 @@ const express = require("express");
 const seedAdminUser = require("./seeders/adminSeeder");
 const { getHealthStatus } = require('./utils/healthCheck');
 const cors = require("cors");
+const compression = require('compression');
 const { v4: uuidv4 } = require('uuid');
 const axios = require("axios");
 const mongoose = require("mongoose");
@@ -50,6 +51,7 @@ const connectWithRetry = async (retries=5, delay=5000) => {
 connectWithRetry();
 
 app.use(cors());
+app.use(compression());
 app.use(express.json());
 
 // ===== REQUEST ID MIDDLEWARE =====
