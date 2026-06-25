@@ -37,20 +37,33 @@ const app = express();
 
 const Sentry = require("@sentry/node");
 
-Sentry.init({
-  dsn: process.env.SENTRY_DSN,
-  environment: process.env.NODE_ENV || "development",
-  tracesSampleRate: 1.0,
-  integrations: [
-    new Sentry.Integrations.Http({ tracing: true }),
-  ],
-});
+// ====== SENTRY SETUP ======
+let sentryEnabled = false;
 
-// Request handler - adds tracing context
-app.use(Sentry.Handlers.requestHandler());
-
-//Tracing handler - creates a trace for every incoming request
-app.use(Sentry.Handlers.tracingHandler());
+if (process.env.SENTRY_DSN && process.env.SENTRY_DSN !== 'https://your-sentry-dsn@o123456.ingest.sentry.io/1234567') {
+    const Sentry = require("@sentry/node");
+    Sentry.init({
+        dsn: process.env.SENTRY_DSN,
+        environment: process.env.NODE_ENV || "development",
+        tracesSampleRate: 1.0,
+    });
+    app.use(Sentry.Handlers.requestHandler());
+    app.use(Sentry.Handlers.tracingHandler());
+    sentryEnabled = true;
+    console.log('✅ Sentry initialized');
+    
+    // Make Sentry available globally
+    global.Sentry = Sentry;
+} else {
+    console.log('ℹ️ Sentry disabled (no valid DSN provided)');
+    // Mock Sentry to prevent errors
+    global.Sentry = {
+        captureException: () => {},
+        setUser: () => {},
+        setTags: () => {},
+        setExtra: () => {},
+    };
+}
 
 // Connect to MongoDB WITH RETRY
 const connectWithRetry = async (retries=5, delay=5000) => {
@@ -288,15 +301,29 @@ app.post("/predict", protect, async (req, res) => {
         confidence: response.data.confidence,
       });
     } catch (historyError) {
-      console.error("Failed to save history:", historyError.message);
+
+      console.error(`[${req.requestId}] Failed to save history: ${historyError.message}`);
     }
 
     res.json(response.data);
   } catch (error) {
-    console.error(`[${req.requestId}]`,error.message);
+Sentry.captureException(error, {
+      tags: {
+        endpoint: '/predict',
+        userId: req.user?.id || 'anonymous'
+      },
+      extra: {
+        text: req.body?.text?.substring(0, 100),
+        type: req.body?.type,
+        errorMessage: error.message
+      }
+    });
+
+    console.error(`[${req.requestId}]`, error.message);
     res.status(500).json({ error: "Something went wrong" });
   }
 });
+
 
 console.log("History saved");
 
@@ -445,6 +472,17 @@ app.post("/bulk-predict", protect, upload.single("file"), async (req, res) => {
 
     res.json(response.data);
   } catch (error) {
+    //Capture error in Sentry 
+    Sentry.captureException(error, {
+      tags: {
+        endpoint: '/bulk-predict',
+        userId: req.user?.id || 'anonymous'
+      },
+      extra: {
+        fileSize: req.file?.size,
+        fileName: req.file?.originalname,
+      }
+    });
     if (error.code === "ECONNREFUSED" || error.code === "ENOTFOUND") {
       console.error("Flask ML API is unavailable:", error.message);
       return res.status(503).json({
