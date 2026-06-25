@@ -151,6 +151,10 @@ FEEDBACK_LABELS = set(label_encoder.classes_)
 def home():
     return "ML API Running 🚀"
 
+@app.route("/health")
+def health():
+    return jsonify({"status": "ok"})
+
 
 @app.route("/predict", methods=["POST"])
 def predict():
