@@ -16,6 +16,7 @@ import SpamInsightsDashboard from "../components/SpamInsightsDashboard";
 import EmailScannerDashboard from "../components/EmailScannerDashboard";
 import Chatbot from "../components/Chatbot";
 import Footer from "../components/Footer";
+import InstallAppButton from "../components/InstallAppButton";
 import { redirect } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 
@@ -115,6 +116,8 @@ function SpamDetector() {
     >
       {/* Top Controls */}
       <div className="absolute top-4 right-4 flex gap-3 flex-wrap justify-end">
+        <InstallAppButton />
+
         <button
           onClick={() => setShowSettings(!showSettings)}
           className={`px-4 py-2.5 rounded-xl font-bold transition-all active:scale-95 flex items-center gap-2 shadow-md ${
