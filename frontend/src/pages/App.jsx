@@ -9,7 +9,6 @@ import FeatureImportance from "../components/FeatureImportance";
 import History from "../components/History";
 import WordCloud from "../components/WordCloud";
 import FeedbackWidget from "../components/FeedbackWidget";
-import PredictionExplanation from "../components/PredictionExplanation";
 import Login from "./Login.jsx";
 import Register from "./Register.jsx";
 import EmailHeaderAnalyzer from "../components/EmailHeaderAnalyzer";
@@ -27,7 +26,6 @@ function SpamDetector() {
   const [text, setText] = useState("");
   const [result, setResult] = useState("");
   const [confidence, setConfidence] = useState(null);
-  const [explanation, setExplanation] = useState(null);
   const [loading, setLoading] = useState(false);
   const [type, setType] = useState("message");
   const [copied, setCopied] = useState(false);
@@ -68,7 +66,7 @@ function SpamDetector() {
     return "detector";
   });
 
-  const { user, login, logout } = useAuth();
+  const { user, logout } = useAuth();
   const handleLogout = () => {
     logout();
     localStorage.removeItem("user");
@@ -99,7 +97,6 @@ function SpamDetector() {
       setExplanation(res.data.explanation ?? null);
     } catch (error) {
       setResult("Error");
-      setExplanation(null);
     } finally {
       setLoading(false);
     }
@@ -124,6 +121,7 @@ function SpamDetector() {
       {/* Top Controls */}
       <div className="absolute top-4 right-4 flex gap-3 flex-wrap justify-end">
         <button
+          onClick={() => setThemeMode(isDark ? 'light' : 'dark')}
           onClick={() => {
             setThemeMode(isDark ? 'light' : 'dark');
           }}
@@ -476,6 +474,7 @@ function SpamDetector() {
                   {loading ? "Analyzing..." : `Analyze ${type === "url" ? "URL" : type}`}
                 </button>
 
+                {/* Results Section */}
                 {result && (
                   <div
                     className={`mt-5 rounded-3xl p-5 shadow-lg border ${
@@ -536,6 +535,73 @@ function SpamDetector() {
                     )}
 
                     {result && confidence !== null && result !== "Error" && (
+                      <div className="mt-4 text-left">
+                        <p className="text-xs font-semibold mb-1 opacity-70">
+                          Model Confidence: {confidencePct}%
+                        </p>
+                        <div className={`w-full rounded-full h-2 ${isDark ? "bg-slate-800" : "bg-slate-200"}`}>
+                          <div
+                            className={`h-3 rounded-full transition-all duration-500 ${
+                              result === "ham" || result === "safe"
+                                ? "bg-green-500"
+                                : result === "spam" || result === "malicious"
+                                  ? "bg-red-500"
+                                  : "bg-orange-500"
+                            }`}
+                            style={{ width: `${confidencePct}%` }}
+                          />
+                        </div>
+
+                        <div className="mb-5">
+                          <p className="text-sm opacity-70 mb-2">Risk Level</p>
+                          <span className={`px-4 py-2 rounded-full text-sm font-semibold ${
+                            riskLevel === "Low"
+                              ? "bg-green-100 text-green-700"
+                              : riskLevel === "Medium"
+                                ? "bg-yellow-100 text-yellow-700"
+                                : "bg-red-100 text-red-700"
+                          }`}>
+                            {riskLevel === "Low" && "🟢 Low"}
+                            {riskLevel === "Medium" && "🟠 Medium"}
+                            {riskLevel === "High" && "🔴 High"}
+                          </span>
+                        </div>
+
+                        <div className="mt-4 mb-4">
+                          <button
+                            onClick={() => {
+                              const fullReport = `
+        📊 Spam Detection Report
+        ─────────────────────
+        🔍 Prediction: ${result === 'ham' || result === 'safe' ? '✅ Safe' : result === 'spam' || result === 'malicious' ? '🚫 Spam/Malicious' : result === 'smishing' ? '⚠️ Fraud' : '⚠️ Error'}
+        📝 Message: ${text}
+        📈 Confidence: ${confidence ? confidencePct + '%' : 'N/A'}
+        ⚠️ Risk Level: ${riskLevel}
+        📅 Date: ${new Date().toLocaleString()}
+         ─────────────────────
+        Powered by Spam Detection System`;
+                              navigator.clipboard.writeText(fullReport);
+                              setCopied(true);
+                              setTimeout(() => setCopied(false), 2000);
+                            }}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 w-full justify-center ${
+                              isDark
+                                ? "bg-slate-700 hover:bg-slate-600 text-slate-200"
+                                : "bg-slate-200 hover:bg-slate-300 text-slate-700"
+                            }`}
+                          >
+                            {copied ? '✅ Copied!' : '📋 Copy Full Report'}
+                          </button>
+                        </div>
+
+                        <p className="text-sm opacity-75 leading-relaxed">
+                          {(result === "spam" || result === "smishing" || result === "malicious") &&
+                            "This content contains characteristics commonly found in spam, phishing, or malicious attacks."}
+                          {(result === "ham" || result === "safe") &&
+                            "No suspicious patterns were detected in this content."}
+                        </p>
+                      </div>
+                    )}
                     <div className="mt-4 text-left">
                      <p className="text-xs font-semibold mb-1 opacity-70">
                         Model Confidence: {confidencePct}%
