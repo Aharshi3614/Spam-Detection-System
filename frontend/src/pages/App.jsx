@@ -165,9 +165,7 @@ function SpamDetector() {
             <span className="text-[10px] text-white font-bold uppercase tracking-wider">Edit</span>
           </div>
           <input type="file" className="hidden" accept="image/*" onChange={async (e) => {
-            const file = e.target.files[0];
             if (!file) return;
-            const formData = new FormData();
             formData.append('avatar', file);
             try {
               const token = localStorage.getItem('token');
