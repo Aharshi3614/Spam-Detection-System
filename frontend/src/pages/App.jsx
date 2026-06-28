@@ -1,4 +1,4 @@
-// Force rebuild - trigger CI
+// Rebuild trigger - fix cache
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
