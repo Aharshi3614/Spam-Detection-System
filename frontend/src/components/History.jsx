@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 const History = () => {
     const [history, setHistory] = useState([]);
@@ -7,6 +8,16 @@ const History = () => {
     const [newEntries, setNewEntries] = useState(0);
     const [autoRefresh, setAutoRefresh] = useState(true);
     const previousCountRef = useRef(0);
+    const [selectedItems, setSelectedItems] = useState([]);
+    const [sortOrder, setSortOrder] = useState('newest');
+    const [isLoading, setIsLoading] = useState(true);
+    const navigate = useNavigate();
+
+    const sortedHistory = [...history].sort((a, b) => {
+        const dateA = new Date(a.createdAt || 0);
+        const dateB = new Date(b.createdAt || 0);
+        return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
+    });
 
     const fetchHistory = async () => {
         try {
@@ -75,6 +86,28 @@ const History = () => {
                 <p>Loading history...</p>
             ) : history.length === 0 ? (
                 <p>No history found.</p>
+                <div style={{ textAlign: 'center', padding: '60px 20px', background: '#f9fafb', borderRadius: '12px', border: '2px dashed #e5e7eb', marginTop: '20px' }}>
+                    <div style={{ fontSize: '48px', marginBottom: '16px' }}>📦</div>
+                    <h3 style={{ margin: '0 0 8px 0', color: '#374151', fontSize: '20px' }}>No scan history yet</h3>
+                    <p style={{ margin: '0 0 24px 0', color: '#6b7280', fontSize: '14px' }}>It looks like you haven't scanned any messages or emails.</p>
+                    <button 
+                        onClick={() => navigate('/dashboard')}
+                        style={{
+                            background: '#3b82f6',
+                            color: 'white',
+                            padding: '10px 20px',
+                            border: 'none',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontWeight: '600',
+                            transition: 'all 0.2s'
+                        }}
+                        onMouseOver={(e) => e.target.style.background = '#2563eb'}
+                        onMouseOut={(e) => e.target.style.background = '#3b82f6'}
+                    >
+                        Go to Dashboard
+                    </button>
+                </div>
             ) : (
                 <div className="history-list" onClick={clearNewEntries}>
                     {history.map(item => (
