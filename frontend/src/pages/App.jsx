@@ -20,6 +20,7 @@ import Footer from "../components/Footer";
 import InstallAppButton from "../components/InstallAppButton";
 import { useNavigate } from "react-router-dom";
 import RulesManager from "../components/RulesManager";
+import PredictionExplanation from "../components/PredictionExplanation";
 
 function SpamDetector() {
   const navigate = useNavigate();
@@ -29,6 +30,7 @@ function SpamDetector() {
   const [loading, setLoading] = useState(false);
   const [type, setType] = useState("message");
   const [copied, setCopied] = useState(false);
+  const [explanation, setExplanation] = useState(null);
 
   const detectType = (text) => {
     if (!text || text.trim().length === 0) return 'message';
