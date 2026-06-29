@@ -18,7 +18,6 @@ import EmailScannerDashboard from "../components/EmailScannerDashboard";
 import Chatbot from "../components/Chatbot";
 import Footer from "../components/Footer";
 import InstallAppButton from "../components/InstallAppButton";
-import { useNavigate } from "react-router-dom";
 import RulesManager from "../components/RulesManager";
 
 function App() {
@@ -27,7 +26,9 @@ function App() {
   const [result, setResult] = useState("");
   const [errorInfo, setErrorInfo] = useState(null);
   const [confidence, setConfidence] = useState(null);
-  const [explanation, setExplanation] = useState(null); 
+  const [explanation, setExplanation] = useState(null);
+  const [wordOfDay, setWordOfDay] = useState(null);
+  const [wordLoading, setWordLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [type, setType] = useState("message");
   const [hasCelebrated, setHasCelebrated] = useState(() => {
@@ -139,6 +140,17 @@ function App() {
     setHasCelebrated(true);
     localStorage.setItem('firstPrediction', 'true');
     }
+  const fetchWordOfTheDay = async () => {
+    try{
+      setWordLoading(true);
+      const res = await api.get(`${import.meta.env.VITE_API_URI}/api/v1/spam/word-of-the-day`);
+    setWordOfDay(res.data);
+    } catch (error) {
+    console.error('Failed to fetch word of the day:', error);
+    } finally {
+    setWordLoading(false);
+    }
+  };
 
       setResult(res.data.prediction);
       setConfidence(res.data.confidence ?? null);
@@ -853,22 +865,86 @@ Powered by Spam Detection System`;
                   Reset
                 </button>
 
-                <FeatureImportance darkMode={isDark} />
-              </>
-            ) : activeTab === "bulk" ? (
-              <BulkSpamDetection />
-            ) : activeTab === "insights" ? (
-              <SpamInsightsDashboard />
-            ) : activeTab === "scanner" ? (
-              <EmailScannerDashboard />
-            ) : activeTab === "rules" ? (
-              <RulesManager />
-            ) : activeTab === "history" ? (
-              <History />
-            ) : (
-              <EmailHeaderAnalyzer />
-            )}
-            <WordCloud darkMode={isDark} />
+                <button
+  onClick={() => {
+    setText("");
+    setResult("");
+    setConfidence(null);
+    setType("message");
+  }}
+  className={`mt-4 w-full py-3.5 rounded-xl font-bold shadow-sm transition-all ${
+    isDark ? activeTheme.btnSecondaryDark : activeTheme.btnSecondary
+  }`}
+>
+  Reset
+</button>
+
+<FeatureImportance darkMode={isDark} />
+
+{/* SPAM WORD OF THE DAY */}
+{wordOfDay && (
+  <div className={`mt-6 p-4 rounded-xl border ${isDark ? 'bg-slate-800/30 border-slate-700' : 'bg-white/40 border-slate-200'}`}>
+    <div className="flex items-center justify-between mb-2">
+      <h3 className="text-sm font-semibold opacity-70">📚 Spam Word of the Day</h3>
+      <button 
+        onClick={fetchWordOfTheDay}
+        className="text-xs opacity-50 hover:opacity-100 transition-opacity"
+        title="Refresh word of the day"
+      >
+        🔄
+      </button>
+    </div>
+    {wordLoading ? (
+      <div className="h-8 w-48 bg-slate-300 rounded animate-pulse"></div>
+    ) : (
+      <>
+        <div className="flex items-center gap-3">
+          <span className={`text-2xl font-bold ${isDark ? 'text-yellow-400' : 'text-yellow-600'}`}>
+            {wordOfDay.word || 'No spam detected today'}
+          </span>
+          {wordOfDay.count && (
+            <span className="text-sm opacity-60">
+              {wordOfDay.count} {wordOfDay.count === 1 ? 'detection' : 'detections'}
+            </span>
+          )}
+        </div>
+        {wordOfDay.definition && (
+          <p className="text-sm mt-2 opacity-75 leading-relaxed">
+            {wordOfDay.definition}
+          </p>
+        )}
+        {wordOfDay.context && (
+          <div className={`mt-2 p-2 rounded text-xs ${isDark ? 'bg-slate-900/50' : 'bg-slate-100/50'}`}>
+            <span className="opacity-60">Example: </span>
+            <span className="italic">"{wordOfDay.context}"</span>
+          </div>
+        )}
+        {wordOfDay.tips && (
+          <div className={`mt-2 p-2 rounded text-xs ${isDark ? 'bg-blue-900/20' : 'bg-blue-50'}`}>
+            💡 {wordOfDay.tips}
+          </div>
+        )}
+      </>
+    )}
+  </div>
+)}
+
+{/* End of detector tab */}
+</> 
+) : activeTab === "bulk" ? (
+  <BulkSpamDetection />
+) : activeTab === "insights" ? (
+  <SpamInsightsDashboard />
+) : activeTab === "scanner" ? (
+  <EmailScannerDashboard />
+) : activeTab === "rules" ? (
+  <RulesManager />
+) : activeTab === "history" ? (
+  <History />
+) : (
+  <EmailHeaderAnalyzer />
+)}
+<WordCloud darkMode={isDark} />
             {showCelebration && (
     <div className="celebration-modal" style={{
         position: 'fixed',
@@ -911,7 +987,7 @@ Powered by Spam Detection System`;
           </div>
         </div>
       </div>
-      <Footer />
+      <Footer darkMode={isDark} />
       <Chatbot />
     </div>
   );
