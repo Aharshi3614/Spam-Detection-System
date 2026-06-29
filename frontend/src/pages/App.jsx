@@ -50,6 +50,22 @@ function SpamDetector() {
     return "message";
   };
 
+  const calculateReadingTime = (text) => {
+    if(!text || text.trim().length === 0) return '0 sec read';
+
+    const wordCount = text.trim().split(/\s+/).length
+    const readingTimeMinutes = wordCount / 200; // Average reading speed: 200 wpm
+
+    if(readingTimeMinutes < 1) {
+      const seconds = Math.round(readingTimeMinutes * 60);
+      return `${seconds} sec read`;
+    } else if(readingTimeMinutes<2){
+      return '1 min read';
+    }else {
+      return `${Math.round(readingTimeMinutes)} min read`;
+    }
+    };
+
   const [darkMode, setDarkMode] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [theme, setTheme] = useState("ocean");
@@ -536,17 +552,17 @@ function SpamDetector() {
                     </button>
                   )}
 
-                  <div className="flex justify-end items-center mt-1.5 px-1 text-xs font-medium tracking-wide opacity-70">
-                    {text.length > 5000 ? (
-                      <span className="text-red-500 font-bold">
-                        {text.length.toLocaleString()} / 5000 characters (Limit exceeded)
-                      </span>
-                    ) : (
-                      <span className={text.length > 500 ? "text-orange-500" : ""}>
-                        {text.length.toLocaleString()} characters
-                      </span>
-                    )}
-                  </div>
+                <div className="flex justify-between items-center mt-1.5 px-1 text-xs font-medium tracking-wide opacity-70">
+                  <span>📖 {calculateReadingTime(text)}</span>
+                  {text.length > 5000 ? (
+                     <span className="text-red-500 font-bold">
+                      {text.length.toLocaleString()} / 5000 characters (Limit exceeded)
+                     </span>
+                  ) : (
+                     <span className={text.length > 500 ? "text-orange-500" : ""}>
+                      {text.length.toLocaleString()} characters
+                     </span>
+                  )}
                 </div>
 
                 <button
