@@ -520,16 +520,25 @@ function App() {
                       ✕
                     </button>
                   )}
-
-                  <div className="flex justify-between items-center mt-1.5 px-1 text-xs font-medium tracking-wide opacity-70">
-                    <span>📖 {calculateReadingTime(text)}</span>
+                  {text && (
+                    <div className="flex flex-wrap justify-between items-center mt-1.5 px-1 text-xs font-medium tracking-wide opacity-70 gap-1">
+                      <div className="flex flex-wrap gap-3">
+                       <span>📖 {calculateReadingTime(text)}</span>
+                      <span>📝 {getTextStats(text).words} words</span>
+                      <span>📏 Avg {getTextStats(text).avgWordLength} chars</span>
+                      <span>📄 {getTextStats(text).sentences} sentences</span>
+                    </div>
                     {text.length > 5000 ? (
-                      <span className="text-red-500 font-bold">{text.length.toLocaleString()} / 5000 characters (Limit exceeded)</span>
+                      <span className="text-red-500 font-bold">
+                        {text.length.toLocaleString()} / 5000 characters (Limit exceeded)
+                      </span>
                     ) : (
-                      <span className={text.length > 500 ? "text-orange-500" : ""}>{text.length.toLocaleString()} characters</span>
+                      <span className={text.length > 500 ? "text-orange-500" : ""}>
+                        {text.length.toLocaleString()} characters
+                      </span>
                     )}
                   </div>
-                </div>
+                  )}
 
                 <button
                   onClick={() => {

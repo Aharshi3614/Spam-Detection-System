@@ -255,12 +255,13 @@ def predict():
         original_text = text
         detected_language = "en"
         translated = False
-        
+
         # Reject whitespace-only input before it reaches the model: a blank
         # string would otherwise be vectorized to an arbitrary, meaningless
         # label. (Missing/empty text is already handled by the check above.)
         if isinstance(text, str) and not text.strip():
             return jsonify({"error": "No text provided"}), 400
+
 
         if input_type != "url" and text.strip():
             try:
@@ -285,57 +286,41 @@ def predict():
                 except Exception:
                     pass
 
-        # Get spam prediction
-        text_vector = vectorizer.transform([text])
-        prediction = model.predict(text_vector)
-        final_output = label_encoder.inverse_transform(prediction)[0]
-
-        # Confidence using decision function for LinearSVC
-        try:
-            scores = model.decision_function(text_vector)
-            confidence = round(float(np.max(scores)), 4)
-        except Exception:
-            confidence = None
-        
         # Get domain analysis
         domain_analysis = analyze_text(text)
+
+        # Prediction (supports both message and url)
         if input_type == "url":
             text_vector = url_vectorizer.transform([text])
             prediction = url_model.predict(text_vector)
             final_output = URL_LABELS.get(int(prediction[0]), "unknown")
-            confidence = 0.90
             if final_output == "safe" and heuristic_url_is_malicious(text):
                 final_output = "malicious"
         else:
             text_vector = vectorizer.transform([text])
             prediction = model.predict(text_vector)
             final_output = label_encoder.inverse_transform(prediction)[0]
-            confidence = 0.90
 
-         # ─── GET CONFIDENCE SCORE ──────────────────────────────────────
         # Get probability/confidence from model
-        confidence = 95.0 #default fallback percentage
+        confidence = 95.0  # default fallback percentage
         try:
             active_model = url_model if input_type == "url" else model
-            # If model has predict_proba
-            if hasattr(active_model, 'predict_proba'):
+            if hasattr(active_model, "predict_proba"):
                 proba = active_model.predict_proba(text_vector)
-                confidence = round(max(proba[0]) * 100, 2)
-            elif hasattr(active_model, 'decision_function'):
-                import numpy as np
+                confidence = round(float(max(proba[0])) * 100, 2)
+            elif hasattr(active_model, "decision_function"):
                 decision = active_model.decision_function(text_vector)
                 if isinstance(decision, np.ndarray):
                     score = float(np.max(np.abs(decision)))
                 else:
                     score = float(abs(decision))
-                # Sigmoid mapping to pseudo-probability percentage
                 prob = 1.0 / (1.0 + np.exp(-score))
                 confidence = round(prob * 100, 2)
         except Exception:
-            # Fallback: safely set confidence to 0 when prediction probability fails
             confidence = 0.0
-        
+
         # ─── DETERMINE CONFIDENCE LEVEL ───────────────────────────────
+
         if confidence >= 80:
             confidence_level = "high"
             level_color = "green"
