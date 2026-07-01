@@ -301,7 +301,6 @@ const fetchHistory = async () => {
                 ))
             )}
         </div>
-    );
+    )
 };
-
 export default History;
