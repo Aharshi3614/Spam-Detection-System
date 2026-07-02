@@ -47,6 +47,12 @@ const FormData = require("form-data");
 
 const app = express();
 
+// ---> NEW: Rate Limiting & Proxy Setup for Issue #426 <---
+app.set('trust proxy', 1); // Crucial for reverse proxies (Nginx/Vercel) to read real IPs
+const { apiLimiter } = require('./middleware/rateLimiter');
+app.use('/predict', apiLimiter); // Apply standard throttling to the heavy ML prediction route
+
+
 const Sentry = require("@sentry/node");
 
 // ====== SENTRY SETUP ======
