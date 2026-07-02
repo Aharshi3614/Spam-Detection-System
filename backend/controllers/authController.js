@@ -222,6 +222,11 @@ const updateAvatar = async (req, res) => {
 
 const forgotPassword = async (req, res) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: errors.array()[0].msg });
+    }
+
     const { email } = req.body;
     const user = await User.findOne({ email });
     if (!user) {
@@ -269,6 +274,11 @@ const forgotPassword = async (req, res) => {
 
 const resetPassword = async (req, res) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: errors.array()[0].msg });
+    }
+
     const { id, token } = req.params;
     const { password } = req.body;
 
