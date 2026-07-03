@@ -5,18 +5,8 @@ from flask import Blueprint, request, jsonify, current_app, send_file
 
 bulk_predict_bp = Blueprint("bulk_predict", __name__)
 
-# This blueprint relies on the Limiter instance created in backend/api.py.
-limiter = None
-
-
-
-
-def _get_limiter():
-    # `api.py` creates and attaches the Limiter instance to the Flask app.
-    limiter = getattr(current_app, "limiter", None)
-    if limiter is None:
-        raise RuntimeError("Rate limiter not initialized")
-    return limiter
+# Import the shared Limiter instance from api.py
+from api import limiter
 
 
 def parse_and_predict_file(file):
