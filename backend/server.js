@@ -463,8 +463,11 @@ app.post("/predict", predictLimiter, protect, checkCache, async (req, res) => {
         confidence_threshold: confidence_threshold
       },
       {
-        headers: { "X-Forwarded-For": req.ip || req.connection.remoteAddress },
-        timeout: Number(process.env.ML_API_TIMEOUT_MS) || 15000,
+        headers: { 
+          "X-Forwarded-For": req.ip || req.connection.remoteAddress,
+          "X-Request-ID": req.requestId // Forwarding the correlation ID
+        },
+        timeout: Number(process.env.ML_API_TIMEOUT_MS) || 15000
       }
     );
     console.timeEnd("ML_API_CALL");
