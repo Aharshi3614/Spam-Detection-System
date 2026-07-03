@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, g
 import csv
 import joblib
 import numpy as np
@@ -234,6 +234,29 @@ LOG_FILE = OUTPUT_DIR / "api.log"
 FEEDBACK_LABELS = set(label_encoder.classes_)
 
 
+# ==========================================
+# DISTRIBUTED TRACING & OBSERVABILITY (Issue #500)
+# ==========================================
+@app.before_request
+def capture_request_id():
+    """Extracts the unique Request ID sent from the Node.js API Gateway"""
+    # Exclude public paths from strict tracing if needed, but capture if available
+    g.request_id = request.headers.get("X-Request-ID", "unknown-ml-req")
+
+@app.errorhandler(Exception)
+def handle_global_exception(e):
+    """Global error handler that includes the Correlation ID in logs and responses"""
+    request_id = getattr(g, 'request_id', 'unknown-ml-req')
+    with open(LOG_FILE, "a") as f:
+        from datetime import datetime
+        f.write(f"{datetime.now()} - [Request-ID: {request_id}] CRITICAL ERROR: {str(e)}\n")
+    
+    return jsonify({
+        "error": "Internal ML Server Error",
+        "message": str(e),
+        "request_id": request_id
+    }), 500
+
 @app.route("/")
 def home():
     return "ML API Running 🚀"
@@ -276,6 +299,7 @@ def predict():
                     f"characters (got {len(text)})"
                 )
             }), 400
+
 
         # Translate incoming text to English if it is not in English
         original_text = text
@@ -366,6 +390,7 @@ def predict():
             for word in words:
                 spam_words_storage[word] = spam_words_storage.get(word, 0) + 1
 
+       # Log prediction with Trace ID
         # Record the scan now that the prediction label is known.
         record_scan(text, final_output, input_type)
 
@@ -373,7 +398,7 @@ def predict():
         text_preview = text[:50] + "..." if len(text) > 50 else text
         with open(LOG_FILE, "a") as f:
             from datetime import datetime
-            f.write(f"{datetime.now()} - Prediction: '{text_preview}' -> {final_output}\n")
+            f.write(f"{datetime.now()} - [Request-ID: {getattr(g, 'request_id', 'unknown')}] Prediction: '{text_preview}' -> {final_output}\n")
         
         # Generate XAI explanation for the input text
         explanation = xai_engine.analyze(text, input_type=input_type)
@@ -396,11 +421,11 @@ def predict():
         return jsonify(response_data)
 
     except Exception as e:
+        request_id = getattr(g, 'request_id', 'unknown')
         with open(LOG_FILE, "a") as f:
             from datetime import datetime
-            f.write(f"{datetime.now()} - ERROR: {str(e)}\n")
-        return jsonify({"error": str(e)}), 500
-
+            f.write(f"{datetime.now()} - [Request-ID: {request_id}] ERROR: {str(e)}\n")
+        return jsonify({"error": str(e), "request_id": request_id}), 500
 
 def extract_words(text):
     """Extract words from text, remove stopwords and punctuation."""
