@@ -16,6 +16,5 @@ router.use(protect);
 router.get("/summary", getSummary);
 router.get("/trends", getTrends);
 router.get("/breakdown", getBreakdown);
-
 router.get('/model-drift', checkModelDrift); 
 module.exports = router;
