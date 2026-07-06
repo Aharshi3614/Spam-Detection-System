@@ -9,6 +9,7 @@ import PredictionExplanation from '../components/PredictionExplanation';
 import PredictionExplanation from "../components/PredictionExplanation";
 import History from "../components/History";
 import WordCloud from "../components/WordCloud";
+import ManipulationIndex from '../components/ManipulationIndex';
 import FeedbackWidget from "../components/FeedbackWidget";
 import Login from "./Login.jsx";
 import confetti from 'canvas-confetti';
@@ -611,6 +612,13 @@ function App() {
                       darkMode={isDark} 
                      />
                     )}
+
+                    {/* Manipulation Index */}
+                    <ManipulationIndex 
+                      text={text} 
+                      result={result} 
+                      darkMode={isDark} 
+                    />
 
                     {confidence !== null && result !== "Error" && (
                       <>
