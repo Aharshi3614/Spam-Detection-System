@@ -532,11 +532,11 @@ function App() {
                     </div>
                     {text.length > 5000 ? (
                       <span className="text-red-500 font-bold">
-                        {text.length.toLocaleString()} / 5000 characters (Limit exceeded)
+                        {Math.max(0, text.length).toLocaleString()} / 5000 characters (Limit exceeded)
                       </span>
                     ) : (
                       <span className={text.length > 500 ? "text-orange-500" : ""}>
-                        {text.length.toLocaleString()} characters
+                        {Math.max(0, text.length).toLocaleString()} characters
                       </span>
                     )}
                   </div>)}
