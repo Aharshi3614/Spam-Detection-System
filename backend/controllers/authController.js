@@ -346,7 +346,6 @@ const updateWebhook = async (req, res) => {
   }
 };
 
-module.exports = { register, login, getMe, googleLogin, updateAvatar, forgotPassword, resetPassword, updateWebhook };
 const logout = async (req, res) => {
   try {
     let token;
