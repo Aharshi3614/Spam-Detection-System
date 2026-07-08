@@ -17,7 +17,9 @@ const axios = require("axios");
 // Initialize background jobs
 require('./jobs/archivalCron');
 const { preventCacheStampede } = require('./middleware/cacheMiddleware');
-
+// Add EvoMail routes
+const evoMailRoutes = require('./routes/evoMailRoutes');
+app.use('/api/evomail', evoMailRoutes);
 // ===== STARTUP TIMER =====
 const SERVER_START_TIME = Date.now();
 const startupLogs = [];
