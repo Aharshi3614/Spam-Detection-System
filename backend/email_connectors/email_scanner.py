@@ -1,11 +1,13 @@
 from flask import current_app
-
+import numpy as np
+import sys
+from pathlib import Path
+from email_header_analyzer import analyze_headers
+    
 try:
     # Import standard headers analyzer if available
-    import sys
-    from pathlib import Path
+    
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from email_header_analyzer import analyze_headers
 except ImportError:
     analyze_headers = None
 
@@ -28,7 +30,7 @@ def scan_emails_with_model(emails):
     # Extract email subjects and bodies for batch vectorization
     texts = [f"{e['subject']}. {e['body']}" for e in emails]
     if texts:
-        import numpy as np
+        
         text_vectors = vectorizer.transform(texts)
         predictions = model.predict(text_vectors)
         final_outputs = label_encoder.inverse_transform(predictions)
@@ -47,7 +49,7 @@ def scan_emails_with_model(emails):
         else:
             safe_count += 1
             
-        import numpy as np
+        
         dec_score = float(np.max(np.abs(decisions[i])))
         prob = 1.0 / (1.0 + np.exp(-dec_score))
         conf_score = round(prob * 100, 2)

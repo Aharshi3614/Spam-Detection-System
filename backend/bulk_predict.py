@@ -1,13 +1,15 @@
 import csv
 import io
 import os
-from flask import Blueprint, request, jsonify, current_app, send_file
 
-bulk_predict_bp = Blueprint("bulk_predict", __name__)
 
-# Import the shared Limiter instance from api.py
+import numpy as np
+
+from flask import Blueprint, current_app, jsonify, request, send_file
+
 from api import limiter
 
+bulk_predict_bp = Blueprint("bulk_predict", __name__)
 
 def parse_and_predict_file(file):
     # Check file extension
@@ -33,7 +35,7 @@ def parse_and_predict_file(file):
 
     # Helper for batch inference
     def _batch_predict(batch_messages):
-        import numpy as np
+        
         vectorizer = getattr(current_app, "vectorizer", None)
         model = getattr(current_app, "model", None)
         label_encoder = getattr(current_app, "label_encoder", None)

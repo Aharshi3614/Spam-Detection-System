@@ -17,18 +17,27 @@ from flask_cors import CORS
 import sys
 from filelock import FileLock
 import requests
+import nltk
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
 from routes.analytics import analytics_bp
 from routes.analytics import record_scan
 from flask_limiter import Limiter
 from flask_limiter.errors import RateLimitExceeded
 from flask_limiter.util import get_remote_address
+from gmail_connector import get_gmail_auth_url, get_gmail_tokens, refresh_gmail_token, fetch_gmail_emails
+from outlook_connector import get_outlook_auth_url, get_outlook_tokens, refresh_outlook_token, fetch_outlook_emails
+from email_scanner import scan_emails_with_model
+import imap_connector
+import imap_store
+import oauth_store
+from crypto_utils import encrypt_secret, decrypt_secret, CredentialEncryptionError
+from apscheduler.schedulers.background import BackgroundScheduler
 
 
 # Try to import NLTK for stopwords (optional)
 try:
-    import nltk
-    from nltk.corpus import stopwords
-    from nltk.tokenize import word_tokenize
+    
     # Do NOT download NLTK corpora at runtime. In restricted / read-only
     # containers this can crash the app on startup with PermissionError.
     # Ensure required corpora (punkt, stopwords) are installed during Docker
@@ -39,14 +48,7 @@ except ImportError:
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "email_connectors"))
-from gmail_connector import get_gmail_auth_url, get_gmail_tokens, refresh_gmail_token, fetch_gmail_emails
-from outlook_connector import get_outlook_auth_url, get_outlook_tokens, refresh_outlook_token, fetch_outlook_emails
-from email_scanner import scan_emails_with_model
-import imap_connector
-import imap_store
-import oauth_store
-from crypto_utils import encrypt_secret, decrypt_secret, CredentialEncryptionError
-from apscheduler.schedulers.background import BackgroundScheduler
+
 load_dotenv()
 
 app = Flask(__name__)

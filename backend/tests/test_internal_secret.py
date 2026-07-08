@@ -3,6 +3,9 @@ import sys
 from pathlib import Path
 import pytest
 from unittest.mock import patch
+import api as api_module
+from flask_jwt_extended import create_access_token
+from conftest import TEST_INTERNAL_SECRET
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 BACKEND_DIR = BASE_DIR / "backend"
@@ -15,9 +18,7 @@ os.environ.setdefault("URL_VECTORIZER_PATH", str(BACKEND_DIR / "url_vectorizer.p
 
 sys.path.insert(0, str(BACKEND_DIR))
 
-import api as api_module
-from flask_jwt_extended import create_access_token
-from conftest import TEST_INTERNAL_SECRET
+
 
 @pytest.fixture
 def client():

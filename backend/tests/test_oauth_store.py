@@ -2,6 +2,8 @@ import sys
 from pathlib import Path
 import pytest
 from cryptography.fernet import Fernet
+import oauth_store
+import imap_store
 from datetime import datetime, timezone, timedelta
 
 BASE_DIR = Path(__file__).resolve().parents[2]
@@ -10,8 +12,7 @@ BACKEND_DIR = BASE_DIR / "backend"
 sys.path.insert(0, str(BACKEND_DIR))
 sys.path.insert(0, str(BACKEND_DIR / "email_connectors"))
 
-import oauth_store
-import imap_store
+
 
 
 @pytest.fixture
