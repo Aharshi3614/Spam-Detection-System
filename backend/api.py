@@ -185,6 +185,7 @@ def ip_allowlist(f):
                 "error": "Access denied from this IP address"
             }), 403
         
+
         return f(*args, **kwargs)
     return decorated_function
 
@@ -221,11 +222,49 @@ def validate_request(f):
                     "error": "Invalid request body"
                 }), 400
         
+
         return f(*args, **kwargs)
     return decorated_function
 
 
 # ============================================
+
+# ZERO TRUST - REQUEST VALIDATION
+# ============================================
+
+def validate_request(f):
+    """Validate every request - Assume Breach mindset"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Validate query parameters
+        for key, value in request.args.items():
+            if isinstance(value, str):
+                # Check for suspicious patterns
+                if any(p in value.lower() for p in ['<script', 'javascript:', 'onerror', 'onload']):
+                    app.logger.warning(f"⚠️  Suspicious query param: {key}={value[:50]}")
+                    return jsonify({
+                        "success": False,
+                        "error": "Invalid request parameters"
+                    }), 400
+        
+        # Validate request body
+        if request.is_json:
+            data = request.get_json(silent=True) or {}
+            # Check for suspicious patterns in JSON data
+            import json
+            data_str = json.dumps(data).lower()
+            if any(p in data_str for p in ['<script', 'javascript:', 'onerror']):
+                app.logger.warning(f"⚠️  Suspicious request body from {request.remote_addr}")
+                return jsonify({
+                    "success": False,
+                    "error": "Invalid request body"
+                }), 400
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+
 # ZERO TRUST - AUDIT LOGGING
 # ============================================
 
@@ -306,6 +345,11 @@ xai_service = XAIService(model=model, vectorizer=vectorizer, label_encoder=label
 
 # In-memory storage for spam words
 spam_words_storage = {}
+
+
+# In-memory storage for spam words
+spam_words_storage = {}
+
 
 # SQLite Persistent Storage for spam words
 import sqlite3
@@ -458,11 +502,17 @@ app.register_blueprint(analytics_bp)
 
 url_model = joblib.load(URL_MODEL_PATH)
 url_vectorizer = joblib.load(URL_VECTORIZER_PATH)
+URL_LABELS = {0: "malicious", 1: "safe"}
+# url_detector.pkl predicts numeric classes with no bundled label encoder
+URL_LABELS = {0: "safe", 1: "malicious"}
+
+
 
 URL_LABELS = {0: "malicious", 1: "safe"}
 
 # url_detector.pkl predicts numeric classes with no bundled label encoder
 URL_LABELS = {0: "safe", 1: "malicious"}
+
 
 
 # Heuristic checks
@@ -762,6 +812,8 @@ def extract_words(text):
 
 
 def get_wordcloud_data():
+
+    if spam_words_storage:
 
    if spam_words_storage:
 
