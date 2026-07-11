@@ -1,6 +1,6 @@
 /**
  * Adversarial Guard - Runtime pattern detection & confidence monitoring
- * Detects potential adversarial attacks in real-time
+
  */
 
 const CONFIDENCE_THRESHOLD = parseFloat(process.env.CONFIDENCE_THRESHOLD) || 0.6;
@@ -38,9 +38,11 @@ const ADVERSARIAL_PATTERNS = {
     }
 };
 
+
 /**
  * Detect adversarial patterns in text
  */
+
 function detectAdversarialPatterns(text) {
     if (!text) return { isSuspicious: false, score: 0, patterns: [] };
 
@@ -59,10 +61,14 @@ function detectAdversarialPatterns(text) {
         }
     }
 
+    const normalizedScore = Math.min(score, 1.0);
+    
+
     // Normalize score
     const normalizedScore = Math.min(score, 1.0);
     
     // Check for extremely long text (potential DoS)
+
     if (text.length > 10000) {
         return {
             isSuspicious: true,
@@ -80,6 +86,9 @@ function detectAdversarialPatterns(text) {
     };
 }
 
+function adversarialGuard(req, res, next) {
+    const text = req.body?.text || req.query?.text || '';
+    
 /**
  * Middleware to check for adversarial patterns
  */
@@ -87,16 +96,22 @@ function adversarialGuard(req, res, next) {
     const text = req.body?.text || req.query?.text || '';
     
     // Skip if no text
+
     if (!text) {
         req.adversarialAnalysis = { isSuspicious: false, score: 0, patterns: [] };
         return next();
     }
+
+    const analysis = detectAdversarialPatterns(text);
+    req.adversarialAnalysis = analysis;
+
 
     // Check for adversarial patterns
     const analysis = detectAdversarialPatterns(text);
     req.adversarialAnalysis = analysis;
 
     // Log suspicious activity
+
     if (analysis.isSuspicious) {
         console.log(`⚠️ [ADVERSARIAL GUARD] Suspicious pattern detected:`, {
             score: analysis.score,
@@ -110,15 +125,19 @@ function adversarialGuard(req, res, next) {
     next();
 }
 
+
 /**
  * Middleware to monitor prediction confidence
  */
+
 function monitorConfidence(req, res, next) {
     const originalSend = res.send;
     
     res.send = function(data) {
         try {
+
             // Parse the response
+
             let responseData;
             if (typeof data === 'string') {
                 responseData = JSON.parse(data);
@@ -126,11 +145,16 @@ function monitorConfidence(req, res, next) {
                 responseData = data;
             }
 
+            if (responseData && typeof responseData === 'object') {
+                const confidence = responseData.confidence_score || responseData.confidence || 0;
+                
+
             // Check if it's a prediction response
             if (responseData && typeof responseData === 'object') {
                 const confidence = responseData.confidence_score || responseData.confidence || 0;
                 
                 // Add adversarial analysis
+
                 if (req.adversarialAnalysis) {
                     responseData.adversarial_analysis = {
                         is_suspicious: req.adversarialAnalysis.isSuspicious,
@@ -139,7 +163,9 @@ function monitorConfidence(req, res, next) {
                     };
                 }
 
+
                 // Flag low confidence
+
                 if (FLAG_LOW_CONFIDENCE && confidence < CONFIDENCE_THRESHOLD) {
                     responseData.low_confidence = true;
                     responseData.needs_review = true;
@@ -147,6 +173,11 @@ function monitorConfidence(req, res, next) {
                     console.log(`⚠️ [CONFIDENCE MONITOR] Low confidence prediction:`, {
                         confidence,
                         threshold: CONFIDENCE_THRESHOLD,
+                        prediction: responseData.result || responseData.prediction
+                    });
+                }
+
+
                         prediction: responseData.result || responseData.prediction,
                         textPreview: req.body?.text?.substring(0, 100)
                     });
@@ -159,10 +190,12 @@ function monitorConfidence(req, res, next) {
                 }
 
                 // Return modified response
+
                 const jsonData = JSON.stringify(responseData);
                 originalSend.call(this, jsonData);
                 return;
             }
+        } catch (e) {}
         } catch (e) {
             // If parsing fails, just pass through
         }
