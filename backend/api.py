@@ -306,8 +306,6 @@ xai_service = XAIService(model=model, vectorizer=vectorizer, label_encoder=label
 
 # In-memory storage for spam words
 spam_words_storage = {}
-# In-memory storage for spam words
-spam_words_storage = {}
 
 # SQLite Persistent Storage for spam words
 import sqlite3
@@ -765,7 +763,10 @@ def extract_words(text):
 
 def get_wordcloud_data():
 
+   if spam_words_storage:
+
     if spam_words_storage:
+
         sorted_words = sorted(spam_words_storage.items(), key=lambda x: x[1], reverse=True)
         return [{"word": w, "count": c} for w, c in sorted_words[:50]]
     return None
