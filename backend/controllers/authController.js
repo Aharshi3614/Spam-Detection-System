@@ -9,6 +9,10 @@ const sharp = require('sharp');
 const BlacklistedToken = require('../models/BlacklistedToken');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
+// ============================================
+// TOKEN GENERATION
+// ============================================
+
 const generateToken = (userId) => {
   return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
@@ -23,8 +27,14 @@ const buildAuthResponse = (user, token) => ({
     email: user.email,
     avatarUrl: user.avatarUrl,
     provider: user.provider,
+    role: user.role || 'user',
+    permissions: user.permissions || [],
   },
 });
+
+// ============================================
+// AUTH CONTROLLERS
+// ============================================
 
 const register = async (req, res) => {
   try {
@@ -34,7 +44,14 @@ const register = async (req, res) => {
     }
 
     const { username, email, password } = req.body;
-
+    
+    if (!username || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        error: "Username, email, and password are required."
+      });
+    }
     const existingUser = await User.findOne({ $or: [{ email }, { username }] });
     if (existingUser) {
       const field = existingUser.email === email ? 'Email' : 'Username';
@@ -66,15 +83,39 @@ const login = async (req, res) => {
     }
 
     const { email, password } = req.body;
-
+    
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        error: "Email and password are required."
+      });
+    }
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(401).json({ error: 'Invalid email or password.' });
     }
 
+    // Check if account is locked
+    if (user.isLocked && user.isLocked()) {
+      return res.status(429).json({
+        success: false,
+        error: 'Account locked due to too many failed attempts. Please try again later.'
+      });
+    }
+
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
+      // Increment login attempts
+      if (user.incrementLoginAttempts) {
+        await user.incrementLoginAttempts();
+      }
       return res.status(401).json({ error: 'Invalid email or password.' });
+    }
+
+    // Reset login attempts on success
+    if (user.updateLastLogin) {
+      await user.updateLastLogin();
     }
 
     const token = generateToken(user._id);
@@ -86,6 +127,40 @@ const login = async (req, res) => {
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ error: 'Server error. Please try again.' });
+  }
+};
+
+// @desc    Logout user - Blacklist token
+// @route   POST /api/auth/logout
+const logout = async (req, res) => {
+  try {
+    const token = req.token;
+
+    if (!token) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'No token provided for logout.' 
+      });
+    }
+
+    await BlacklistedToken.blacklist(
+      token,
+      req.user._id,
+      'LOGOUT',
+      req.ip || req.connection?.remoteAddress,
+      req.headers['user-agent']
+    );
+
+    res.json({ 
+      success: true,
+      message: 'Successfully logged out. Token revoked.'
+    });
+  } catch (err) {
+    console.error('Logout error:', err);
+    res.status(500).json({ 
+      success: false,
+      error: 'Server error during logout.' 
+    });
   }
 };
 
@@ -184,19 +259,14 @@ const updateAvatar = async (req, res) => {
 
     const avatarUrl = `${req.protocol}://${req.get('host')}/uploads/${filename}`;
 
-    // Clean up old avatar if it exists
-    // Clean up old avatar if it exists
     const currentUser = await User.findById(req.user.id);
-
     if (currentUser && currentUser.avatarUrl && currentUser.avatarUrl.includes('/uploads/')) {
       try {
         const oldFilename = currentUser.avatarUrl.split('/uploads/')[1];
         const oldFilePath = path.join(__dirname, '..', 'uploads', oldFilename);
-
         await fs.promises.access(oldFilePath);
         await fs.promises.unlink(oldFilePath);
       } catch (err) {
-        // Ignore missing files
         if (err.code !== 'ENOENT') {
           console.error('Failed to delete old avatar:', err);
         }
@@ -230,17 +300,17 @@ const forgotPassword = async (req, res) => {
     const { email } = req.body;
     const user = await User.findOne({ email });
     if (!user) {
-      // Send a successful response to prevent email enumeration
       return res.json({ message: 'If an account with that email exists, a reset link has been sent.' });
     }
 
-    // Generate token using password hash to make it single-use
     const secret = process.env.JWT_SECRET + user.password;
-    const token = jwt.sign({ id: user._id, email: user.email }, secret, { expiresIn: process.env.PASSWORD_RESET_TOKEN_EXPIRES || '15m' });
+    const token = jwt.sign(
+      { id: user._id, email: user.email }, 
+      secret, 
+      { expiresIn: process.env.PASSWORD_RESET_TOKEN_EXPIRES || '15m' }
+    );
 
-    // Generate reset link using configurable client URL
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
-
     const resetLink = `${clientUrl}/reset-password/${user._id}/${token}`;
 
     const transporter = nodemailer.createTransport({
@@ -304,18 +374,74 @@ const resetPassword = async (req, res) => {
   }
 };
 
-// ---> NEW: Webhook Update Controller (For Issue #430)
+const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Current password and new password are required.' 
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'New password must be at least 6 characters.' 
+      });
+    }
+
+    const user = await User.findById(req.user.id).select('+password');
+    if (!user) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'User not found.' 
+      });
+    }
+
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) {
+      return res.status(401).json({ 
+        success: false,
+        error: 'Current password is incorrect.' 
+      });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    await BlacklistedToken.invalidateAllUserTokens(
+      user._id,
+      'PASSWORD_CHANGE',
+      req.token,
+      req.ip || req.connection?.remoteAddress,
+      req.headers['user-agent']
+    );
+
+    res.json({ 
+      success: true,
+      message: 'Password changed successfully. All sessions invalidated. Please login again.'
+    });
+  } catch (err) {
+    console.error('Change password error:', err);
+    res.status(500).json({ 
+      success: false,
+      error: 'Server error. Please try again later.' 
+    });
+  }
+};
+
 const updateWebhook = async (req, res) => {
   try {
     const { webhookUrl } = req.body;
     
-    // We allow empty strings to let the user "delete/disable" their webhook
     const newWebhookValue = (webhookUrl && webhookUrl.trim() !== '') ? webhookUrl.trim() : null;
 
     const user = await User.findByIdAndUpdate(
       req.user.id,
       { webhookUrl: newWebhookValue },
-      { new: true, runValidators: true } // runValidators ensures the Regex in schema is checked
+      { new: true, runValidators: true }
     ).select('-password');
 
     if (!user) {
@@ -332,27 +458,185 @@ const updateWebhook = async (req, res) => {
   }
 };
 
-module.exports = { register, login, getMe, googleLogin, updateAvatar, forgotPassword, resetPassword, updateWebhook };
-const logout = async (req, res) => {
+const getSessionStatus = async (req, res) => {
   try {
-    let token;
-    // Extract token from header
-    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-      token = req.headers.authorization.split(' ')[1];
-    }
-
-    if (!token) {
-      return res.status(400).json({ error: 'No token provided for logout.' });
-    }
-
-    // Add the token to the blacklist
-    await BlacklistedToken.create({ token });
-
-    res.json({ message: 'Successfully logged out. Token revoked.' });
+    const token = req.token;
+    const decoded = jwt.decode(token);
+    
+    const now = Math.floor(Date.now() / 1000);
+    const timeUntilExpiry = decoded.exp - now;
+    
+    res.json({
+      success: true,
+      expiresIn: timeUntilExpiry,
+      expiresAt: new Date(decoded.exp * 1000),
+      isExpiringSoon: timeUntilExpiry < 300
+    });
   } catch (err) {
-    console.error('Logout error:', err);
-    res.status(500).json({ error: 'Server error during logout.' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to get session status' 
+    });
   }
 };
 
-module.exports = { register, login, logout, getMe, googleLogin, updateAvatar, forgotPassword, resetPassword };
+// ============================================
+
+// ZERO TRUST - ROLE MANAGEMENT
+// ============================================
+
+// @desc    Assign role to user (Admin only)
+// @route   POST /api/auth/admin/assign-role
+const assignRole = async (req, res) => {
+  try {
+    const { userId, role } = req.body;
+
+    if (!userId || !role) {
+      return res.status(400).json({
+        success: false,
+        error: 'userId and role are required'
+      });
+    }
+
+    const validRoles = ['user', 'moderator', 'admin'];
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid role. Must be one of: ${validRoles.join(', ')}`
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    // Check if requester has permission
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Admin access required to assign roles'
+      });
+    }
+
+    // Update user role (permissions auto-assigned via pre-save hook)
+    user.role = role;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: `Role '${role}' assigned successfully to ${user.email}`,
+      user: {
+        id: user._id,
+        email: user.email,
+        username: user.username,
+        role: user.role,
+        permissions: user.permissions
+      }
+    });
+  } catch (err) {
+    console.error('Assign role error:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to assign role'
+    });
+  }
+};
+
+// @desc    Get user's permissions (Admin only)
+// @route   GET /api/auth/admin/user-permissions/:userId
+const getUserPermissions = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Admin access required'
+      });
+    }
+
+    const user = await User.findById(userId).select('email username role permissions');
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      user: {
+        id: user._id,
+        email: user.email,
+        username: user.username,
+        role: user.role,
+        permissions: user.permissions
+      }
+    });
+  } catch (err) {
+    console.error('Get user permissions error:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get user permissions'
+    });
+  }
+};
+
+// @desc    Get all roles and permissions (Public)
+// @route   GET /api/auth/roles
+const getRolesAndPermissions = async (req, res) => {
+  try {
+    const roles = User.getRoles ? User.getRoles() : ['user', 'moderator', 'admin'];
+    const permissions = User.getPermissions ? User.getPermissions() : [];
+
+    res.json({
+      success: true,
+      roles: roles,
+      permissions: permissions,
+      rolePermissions: User.ROLE_PERMISSIONS || {}
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get roles and permissions'
+    });
+  }
+};
+
+// ============================================
+// 📌 EXPORTS - ONLY ONCE AT THE VERY END
+
+// EXPORTS
+
+// ============================================
+
+module.exports = { 
+  register, 
+  login, 
+  logout, 
+  getMe, 
+  googleLogin, 
+  updateAvatar, 
+  forgotPassword, 
+  resetPassword,
+  changePassword,
+  updateWebhook,
+
+  getSessionStatus,
+  assignRole,
+  getUserPermissions,
+  getRolesAndPermissions,
+  generateToken,
+  buildAuthResponse
+};
+
+module.exports = { register, login, logout, getMe, googleLogin, updateAvatar, forgotPassword, resetPassword, updateWebhook };
+
+
+  getSessionStatus
+};
+
