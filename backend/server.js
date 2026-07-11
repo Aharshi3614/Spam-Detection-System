@@ -34,11 +34,17 @@ const visualRoutes = require('./routes/visualRoutes');
 app.use('/api/visual', visualRoutes);
 const logStartupTime= (component, startTime) => {
 
+
+// Add EvoMail routes
+const evoMailRoutes = require('./routes/evoMailRoutes');
+app.use('/api/evomail', evoMailRoutes);
+
 const healthRoutes = require("./routes/healthRoutes");
 const predictionRoutes = require("./routes/predictionRoutes");
 const emailIntegrationRoutes = require("./routes/emailIntegrationRoutes");
 const imapRoutes = require("./routes/imapRoutes");
 const utilityRoutes = require("./routes/utilityRoutes");
+
 // ===== STARTUP TIMER =====
 const SERVER_START_TIME = Date.now();
 const startupLogs = [];
@@ -334,3 +340,6 @@ const gracefulShutdown = async (signal) => {
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 module.exports = { app };
+
+
+

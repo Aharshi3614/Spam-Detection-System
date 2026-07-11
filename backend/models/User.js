@@ -81,6 +81,7 @@ const userSchema = new mongoose.Schema(
 
       minlength: [3, 'Username must be at least 3 characters long'],
       maxlength: [30, 'Username cannot exceed 30 characters'],
+
     },
     email: {
       type: String,
@@ -98,8 +99,11 @@ const userSchema = new mongoose.Schema(
       },
       minlength: 6,
       select: false // Don't return password by default
+
       required: false,
+
       minlength: [6, 'Password must be at least 6 characters long'],
+
 
     },
     googleId: {
@@ -162,11 +166,19 @@ const userSchema = new mongoose.Schema(
     lastLogin: {
       type: Date,
       default: null
+
     },
     loginAttempts: {
       type: Number,
       default: 0
     },
+
+    },
+    loginAttempts: {
+      type: Number,
+      default: 0
+    },
+
     lockUntil: {
       type: Date,
       default: null
