@@ -14,7 +14,9 @@ import {
   Cell,
 } from "recharts";
 import { useTheme } from "../context/ThemeContext";
-import api, { PYTHON_API_BASE_URL } from "../utils/axiosInstance";
+import { useAuth } from "../context/AuthContext";
+import api from "../utils/axiosInstance";
+import { PYTHON_API_BASE_URL } from "../utils/axiosInstance";
 import ActivityHeatmap from '../components/ActivityHeatmap';
 
 // Uses the `api` instance (for its auth-token interceptor) but targets the
@@ -60,6 +62,7 @@ function pivotBreakdown(rows) {
 export default function Dashboard() {
   const navigate = useNavigate();
   const { isDark, activeTheme } = useTheme();
+  const { user } = useAuth();
 
   const [summary, setSummary] = useState(null);
   const [trends, setTrends] = useState([]);
