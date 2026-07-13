@@ -497,6 +497,39 @@ python retrain.py
 
 This merges `feedback_store.csv` with the original training dataset (`DATASET_PATH`, default `dataset.csv`), retrains the TF-IDF vectorizer, LinearSVC model and label encoder, and overwrites `linear_svm_model.pkl`, `tfidf_vectorizer.pkl` and `label_encoder.pkl`.
 
+### Reviewing collected feedback
+
+`POST /feedback` was write-only until now — there was no way to see what had been collected without opening `feedback_store.csv` by hand. `GET /feedback/stats` (available on both the Node backend and the Flask ML API, same auth requirements as `POST /feedback`) aggregates it:
+
+```json
+{
+  "total": 5,
+  "corrections": 2,
+  "correction_rate": 0.4,
+  "by_predicted_label": {
+    "ham": {
+      "total": 3,
+      "corrections": 1,
+      "corrected_to": { "spam": 1 }
+    }
+  },
+  "recent": [
+    {
+      "text_preview": "Congratulations! You won a free prize, click here",
+      "predicted_label": "ham",
+      "correct_label": "spam",
+      "submitted_at": "2026-07-13T20:43:57.011074+00:00"
+    }
+  ]
+}
+```
+
+* `total` / `corrections` / `correction_rate` — overall counts and what fraction of feedback disagreed with the model.
+* `by_predicted_label` — per predicted label, how often it was confirmed vs. corrected, and what it was corrected to.
+* `recent` — the 20 most recent submissions, most recent first (`text_preview` is truncated to 100 characters).
+
+The web app's "Insights" tab shows this under **User Feedback**.
+
 ---
 ## .env.example (Frontend)
 VITE_GOOGLE_CLIENT_ID=your_google_client_id_here

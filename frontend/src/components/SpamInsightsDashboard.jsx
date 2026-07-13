@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from "../context/ThemeContext";
 import api from "../utils/axiosInstance";
+import FeedbackInsights from "./FeedbackInsights";
 
 export default function SpamInsightsDashboard() {
   const [insights, setInsights] = useState(null);
@@ -205,6 +206,8 @@ export default function SpamInsightsDashboard() {
           </div>
         </div>
       )}
+
+      <FeedbackInsights />
     </div>
   );
 }

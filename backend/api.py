@@ -912,6 +912,72 @@ def feedback():
         return jsonify({"error": "Failed to record feedback."}), 500
 
 
+@app.route("/feedback/stats", methods=["GET"])
+@validate_request
+@validate_internal_request
+def feedback_stats():
+    """Aggregate view of submitted feedback (issue #823): the /feedback
+    endpoint has always been write-only, with no way to see what's been
+    collected without opening the CSV by hand."""
+    if not os.path.isfile(FEEDBACK_FILE):
+        return jsonify({
+            "total": 0,
+            "corrections": 0,
+            "correction_rate": 0.0,
+            "by_predicted_label": {},
+            "recent": [],
+        })
+
+    try:
+        rows = []
+        with open(FEEDBACK_FILE, "r", newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                rows.append(row)
+    except Exception as e:
+        app.logger.error(f"Failed to read feedback stats: {e}")
+        return jsonify({"error": "Failed to read feedback data."}), 500
+
+    total = len(rows)
+    corrections = 0
+    by_predicted_label = {}
+
+    for row in rows:
+        predicted = row.get("predicted_label") or "unknown"
+        correct = row.get("correct_label") or "unknown"
+        is_correction = predicted != correct
+
+        bucket = by_predicted_label.setdefault(predicted, {
+            "total": 0,
+            "corrections": 0,
+            "corrected_to": {},
+        })
+        bucket["total"] += 1
+        if is_correction:
+            corrections += 1
+            bucket["corrections"] += 1
+            bucket["corrected_to"][correct] = bucket["corrected_to"].get(correct, 0) + 1
+
+    recent = list(reversed(rows))[:20]
+    recent = [
+        {
+            "text_preview": (row.get("text") or "")[:100],
+            "predicted_label": row.get("predicted_label"),
+            "correct_label": row.get("correct_label"),
+            "submitted_at": row.get("submitted_at"),
+        }
+        for row in recent
+    ]
+
+    return jsonify({
+        "total": total,
+        "corrections": corrections,
+        "correction_rate": round(corrections / total, 4) if total else 0.0,
+        "by_predicted_label": by_predicted_label,
+        "recent": recent,
+    })
+
+
 # ============================================
 # EMAIL HEADER ANALYSIS
 # ============================================

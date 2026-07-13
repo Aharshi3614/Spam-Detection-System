@@ -332,6 +332,25 @@ router.post("/feedback", protect, async (req, res) => {
   }
 });
 
+router.get("/feedback/stats", protect, async (req, res) => {
+  try {
+    const response = await axios.get(`${ML_API_BASE}/feedback/stats`);
+    res.json(response.data);
+  } catch (error) {
+    if (error.code === "ECONNREFUSED" || error.code === "ENOTFOUND") {
+      console.error("Flask ML API is unavailable:", error.message);
+      return res.status(503).json({
+        error: "Flask ML API is currently unavailable. Please try again later.",
+      });
+    }
+    if (error.response) {
+      return res.status(error.response.status).json(error.response.data);
+    }
+    console.error(`[${req.requestId}] Feedback stats error:`, error.message);
+    res.status(500).json({ error: "Something went wrong" });
+  }
+});
+
 router.post("/analyze-email-header", protect, upload.single("file"), async (req, res) => {
  try {
        if (req.file) {
