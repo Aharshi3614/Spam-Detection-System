@@ -21,6 +21,7 @@ const compression = require('compression');
 const { v4: uuidv4 } = require('uuid');
 const helmet = require('helmet');
 const axios = require("axios");
+const { corsOptions } = require('./config/corsConfig');
 
 // Initialize background jobs
 require('./jobs/archivalCron');
@@ -195,10 +196,7 @@ if (process.env.NODE_ENV === 'development') {
 // Start connection with retry
 connectWithRetry();
 
-const corsOptions = {
-  origin: ['http://localhost:5173', 'http://localhost:3000'],
-  credentials: true,
-};
+
 app.use(cors(corsOptions));
 app.use(helmet());
 app.use(compression());
