@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
+import api from '../utils/axiosInstance';
 import { useTheme } from '../context/ThemeContext';
 import './Chatbot.css';
 
@@ -63,8 +63,7 @@ const Chatbot = () => {
     setIsLoading(true);
 
     try {
-      const apiUrl = `${import.meta.env.VITE_API_URI || 'http://localhost:3000'}/api/chat`;
-      const response = await axios.post(apiUrl, {
+      const response = await api.post('/api/chat', {
         message: messageText,
         history: newMessages.slice(0, -1) // Send context
       });

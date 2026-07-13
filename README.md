@@ -365,7 +365,11 @@ export default App;
 
 ## 📱 React Native App (Android & iOS)
 
-### 📦 Setup
+The actual mobile app lives in `spamdetection/` (Expo). See [`spamdetection/README.md`](spamdetection/README.md) for setup, and specifically its **Configuring the API URL** section for how to point the app at your backend — the API base URL is resolved from `EXPO_PUBLIC_ANDROIDAPI`/`EXPO_PUBLIC_IOSAPI` env vars (`spamdetection/.env.example`), not hardcoded, with working defaults for the Android emulator/iOS simulator and a console warning + LAN-IP instructions for real-device testing.
+
+### 📦 Setup (building your own client from scratch)
+
+If you're building a separate React Native client against this backend rather than using `spamdetection/`, the same principle applies: don't hardcode an IP, read it from an env var with a documented fallback.
 
 ```bash
 npx create-expo-app
@@ -379,12 +383,17 @@ import { useState } from "react";
 import { View, Text, TextInput, Button } from "react-native";
 import axios from "axios";
 
+// Prefer an env var (e.g. EXPO_PUBLIC_API_URL) over a hardcoded IP - see
+// spamdetection/constants/api.ts for a fuller example with platform
+// detection and a missing-config warning.
+const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000";
+
 export default function App() {
   const [text, setText] = useState("");
   const [result, setResult] = useState("");
 
   const predict = async () => {
-    const res = await axios.post("http://YOUR_IP:3000/predict", { text });
+    const res = await axios.post(`${API_URL}/predict`, { text });
     setResult(res.data.result);
   };
 
@@ -502,6 +511,8 @@ This merges `feedback_store.csv` with the original training dataset (`DATASET_PA
 VITE_GOOGLE_CLIENT_ID=your_google_client_id_here
 VITE_API_URI=http://localhost:3000
 VITE_PYTHON_URI=http://127.0.0.1:5000
+
+If either `VITE_API_URI` or `VITE_PYTHON_URI` is missing, the app falls back to the localhost defaults shown above (so local development still works with no `.env` at all) but logs a console warning explaining that a real deployment needs it set explicitly - see `frontend/src/utils/axiosInstance.js`.
 
 ---
 

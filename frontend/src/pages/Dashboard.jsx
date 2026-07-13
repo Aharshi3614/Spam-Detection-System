@@ -14,11 +14,12 @@ import {
   Cell,
 } from "recharts";
 import { useTheme } from "../context/ThemeContext";
-import api from "../utils/axiosInstance";
+import api, { PYTHON_API_BASE_URL } from "../utils/axiosInstance";
 import ActivityHeatmap from '../components/ActivityHeatmap';
 
-
-const API_BASE = import.meta.env.VITE_PYTHON_URI || "http://127.0.0.1:5000";
+// Uses the `api` instance (for its auth-token interceptor) but targets the
+// Flask ML API directly, bypassing the Node backend.
+const API_BASE = PYTHON_API_BASE_URL;
 
 // Known verdict labels the ML API can return (text -> ham/spam/smishing, url -> safe/malicious).
 const LABEL_COLORS = {
