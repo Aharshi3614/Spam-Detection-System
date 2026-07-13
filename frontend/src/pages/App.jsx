@@ -49,12 +49,6 @@ function App() {
   const [hasCelebrated, setHasCelebrated] = useState(() => {
     return localStorage.getItem("firstPrediction") === "true";
   });
-  const [showCelebration, setShowCelebration] = useState(false);
-
-  const [darkMode, setDarkMode] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
-  const [theme, setTheme] = useState("ocean");
-  const [showThemes, setShowThemes] = useState(false);
 
   const [showSettings, setShowSettings] = useState(false);
   const [activeTab, setActiveTab] = useState(() => {
@@ -66,14 +60,6 @@ function App() {
   });
 
   const [soundEnabled, setSoundEnabled] = useState(true);
-
-  // Detect URLs in text
-  const detectURLs = (text) => {
-    if (!text) return [];
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-     const matches = text.match(urlRegex);
-      return matches || [];
-    };
 
   const playSpamSound = () => {
     if (!soundEnabled) return;
@@ -91,64 +77,10 @@ function App() {
         osc.start(ctx.currentTime + delay);
         osc.stop(ctx.currentTime + delay + 0.15);
       });
-    } catch (e) {
+    } catch {
       /* silent fail */
     }
   };
-
-  // Helper to get earned badges (returns array of badge objects)
-  const getEarnedBadges = () => {
-    try {
-      const streakCount = parseInt(localStorage.getItem('predictionStreak') || '0', 10);
-      return Object.keys(Badges)
-        .map((k) => ({ day: Number(k), ...Badges[k] }))
-        .filter((b) => streakCount >= b.day);
-    } catch (e) {
-      return [];
-    }
-  };
-
-  // Placeholder for badge checking logic
-  const checkNewBadge = (newStreak) => {
-    // simple implementation: if new streak matches a badge threshold, show popup
-    if (Badges[newStreak]) {
-      setNewBadgeEarned(true);
-      setShowBadgePopup(true);
-      setTimeout(() => setShowBadgePopup(false), 4000);
-    }
-  };
-
-  //Streak tracking
-  const [streak, setStreak] = useState(() => {
-    const lastDate = localStorage.getItem("lastPredictionDate");
-    const streakCount = parseInt(localStorage.getItem("streakCount") || "0", 10);
-    const today = new Date().toDateString();
-
-    if (lastDate === today) return streakCount;
-    if(lastDate){
-      const last = new Date(lastDate);
-      const now = new Date();
-      const diffTime = now - last;
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    
-      if (diffDays === 1) return streakCount + 1;
-      if (diffDays > 1) return 0;
-    }
-    return streakCount;
-  });
-
-  const [newBadgeEarned, setNewBadgeEarned] = useState(false);
-  const [showBadgePopup, setShowBadgePopup] = useState(false);
-
-  //Badge Definitions
-  const Badges = {
-     3: { name: '🔥 Novice Streaker', icon: '🔥', color: 'bg-orange-500', description: '3 day streak' },
-     7: { name: '⚡ Weekly Warrior', icon: '⚡', color: 'bg-blue-500', description: '7 day streak' },
-     14: { name: '🌟 Fortnight Champion', icon: '🌟', color: 'bg-purple-500', description: '14 day streak' },
-     30: { name: '🏆 Monthly Master', icon: '🏆', color: 'bg-yellow-500', description: '30 day streak' },
-     50: { name: '💎 Diamond Streaker', icon: '💎', color: 'bg-cyan-500', description: '50 day streak' },
-     100: { name: '👑 Legendary Streaker', icon: '👑', color: 'bg-red-500', description: '100 day streak' },
-    };
 
   const playHamSound = () => {
     if (!soundEnabled) return;
@@ -166,7 +98,7 @@ function App() {
         osc.start(ctx.currentTime + i * 0.12);
         osc.stop(ctx.currentTime + i * 0.12 + 0.15);
       });
-    } catch (e) { /* silent fail */ }
+    } catch { /* silent fail */ }
   };
 
   const { user, login, logout } = useAuth();
@@ -271,7 +203,7 @@ function App() {
 const analyzeEmojiSentiment = (text) => {
   if (!text) return { positive: 0, negative: 0, neutral: 0 };
 
-  const emojiRegex = /([\u2700-\u27BF]|[\uE000-\uF8FF]|[\uD83C-\uDBFF\uDC00-\uDFFF])/g;
+  const emojiRegex = /([\u2700-\u27BF]|[\uE000-\uF8FF]|[\uD83C-\uDBFF\uDC00-\uDFFF])/gu;
   const matches = text.match(emojiRegex) || [];
 
   if (matches.length === 0) return { positive: 0, negative: 0, neutral: 0 };
@@ -400,30 +332,6 @@ const analyzeEmojiSentiment = (text) => {
     }
   };
 
-  const [showButton, setShowButton] = useState(false);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setShowButton(window.scrollY > 300);
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-  const getColor = () => {
-    if (result === "ham" || result === "safe")
-      return "text-green-600 dark:text-green-400";
-    if (result === "spam" || result === "malicious")
-      return "text-red-600 dark:text-red-400";
-    if (result === "smishing") return "text-orange-600 dark:text-orange-400";
-    if (result === "Error") {
-      return isDark ? "text-yellow-300" : "text-yellow-700";
-    }
-  };
-
   if (result === 'spam' || result === 'malicious') {
     playSpamSound();
   } else if (result === 'ham' || result === 'safe') {
@@ -438,9 +346,6 @@ const analyzeEmojiSentiment = (text) => {
     setTimeout(() => {
       confetti({ particleCount: 50, spread: 50, origin: { y: 0.6, x: 0.7 } });
     }, 400);
-    setTimeout(() => {
-      setShowCelebration(true);
-    }, 500);
   };
 
   const confidencePct = confidence !== null ? Math.min(confidence * 50 + 50, 100).toFixed(1) : "0.0";
@@ -999,6 +904,12 @@ const analyzeEmojiSentiment = (text) => {
                   </div>
                 </div>
                 )}
+
+                <SpamPatternLibrary
+                  isOpen={showPatternLibrary}
+                  onClose={() => setShowPatternLibrary(false)}
+                  darkMode={isDark}
+                />
 
 
                 <FeatureImportance darkMode={isDark} />
