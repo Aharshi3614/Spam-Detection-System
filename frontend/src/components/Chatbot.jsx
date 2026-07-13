@@ -22,7 +22,7 @@ const Chatbot = () => {
       try {
         const parsed = JSON.parse(saved);
         return Array.isArray(parsed) ? parsed : [];
-      } catch (e) {
+      } catch {
         return [];
       }
     }

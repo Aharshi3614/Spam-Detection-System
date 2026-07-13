@@ -1,5 +1,4 @@
-import React, {useState,useEffect} from 'react';
-import api from '../utils/axiosInstance';
+import React, {useState} from 'react';
 
 const URLPreview = ({ url,children,darkMode }) => {
     const [showPreview, setShowPreview] = useState(false);
