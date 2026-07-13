@@ -15,8 +15,11 @@ from explanation_engine import ExplanationEngine
 from pathlib import Path
 from flask_cors import CORS
 import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / "email_connectors"))
+
 from utils.spamSeverity import calculate_spam_severity
-from filelock import FileLock
+from filelock import FileLock, Timeout
 import requests
 import nltk
 from nltk.corpus import stopwords
@@ -53,8 +56,6 @@ try:
 except ImportError:
     NLTK_AVAILABLE = False
 
-
-sys.path.insert(0, str(Path(__file__).resolve().parent / "email_connectors"))
 
 load_dotenv()
 
@@ -141,6 +142,9 @@ def validate_internal_request(f):
         app.logger.info(f"🔐 [ZERO-TRUST] Internal request to {request.path} from {request.remote_addr}")
         return f(*args, **kwargs)
     return decorated_function
+
+# Alias used by routes that gate on the internal service-to-service secret.
+internal_endpoint_required = validate_internal_request
 
 # Apply to all routes by default (except public paths)
 @app.before_request
@@ -444,7 +448,7 @@ SPAM_WORD_METADATA = {
 def get_word_of_the_day_data():
     day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     word_row = None
-    with _db_connection() as conn:
+    with imap_store.get_db_connection() as conn:
         word_row = conn.execute(
             """
             SELECT word, SUM(count) as total_count
