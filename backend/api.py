@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify, g
 import csv
+import json
 import joblib
 import numpy as np
 import os
@@ -67,11 +68,8 @@ CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
 # ── Rate limiting (ML inference protection) ──────────────────────────────────
 PREDICT_RATE_LIMIT = os.getenv("PREDICT_RATE_LIMIT", "50 per minute")
 
-limiter = Limiter(
-    get_remote_address,
-    app=app,
-    default_limits=[PREDICT_RATE_LIMIT],
-)
+from extensions import limiter
+limiter.init_app(app)
 
 # Flask-Limiter uses a default 429 HTML response; standardize to JSON.
 @app.errorhandler(RateLimitExceeded)
@@ -653,7 +651,28 @@ def predict():
 
 
     try:
-        data = request.get_json(silent=True) or {}
+        data = request.get_json(silent=True)
+        if data is None:
+            raw_body = request.get_data(cache=True)
+            if raw_body:
+                # get_json(silent=True) returns None both for malformed JSON
+                # and for the valid JSON literal `null` - tell those apart so
+                # the error message doesn't call a well-formed `null` invalid.
+                try:
+                    json.loads(raw_body)
+                except ValueError:
+                    return jsonify({
+                        "error": "Request body must be a valid JSON object"
+                    }), 400
+                return jsonify({
+                    "error": "Request body must be a JSON object, got NoneType"
+                }), 400
+            data = {}
+        elif not isinstance(data, dict):
+            return jsonify({
+                "error": f"Request body must be a JSON object, got {type(data).__name__}"
+            }), 400
+
         text = data.get("text")
         input_type = data.get("type", "message")
 
@@ -1068,7 +1087,7 @@ def outlook_callback():
 
 
 @app.route("/outlook/emails", methods=["GET"])
-@internal_endpoint_required
+@validate_internal_request
 def outlook_emails():
     username = _require_username()
     if not username:
@@ -1097,7 +1116,7 @@ def outlook_emails():
         return jsonify({"error": f"Failed to fetch Outlook emails: {str(e)}"}), 500
 
 @app.route("/scan-emails", methods=["POST"])
-@internal_endpoint_required
+@validate_internal_request
 def scan_emails_route():
     data = request.get_json(silent=True) or {}
     provider = data.get("provider", "").lower()
