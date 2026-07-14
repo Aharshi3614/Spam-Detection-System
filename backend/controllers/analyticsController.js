@@ -47,7 +47,14 @@ const getSummary = async (req, res) => {
   try {
     const userId = getUserObjectId(req);
     const counts = await History.aggregate([
-      { $match: { user: userId } },
+      {
+        $match: {
+          user: userId,
+          prediction: { $exists: true, $ne: null },
+          type: { $exists: true, $ne: null },
+          createdAt: { $exists: true, $ne: null }
+        }
+      },
       { $group: { _id: "$prediction", count: { $sum: 1 } } },
     ]);
 
@@ -97,7 +104,14 @@ const getTrends = async (req, res) => {
 
     const userId = getUserObjectId(req);
     const trends = await History.aggregate([
-      { $match: { user: userId } },
+      {
+        $match: {
+          user: userId,
+          prediction: { $exists: true, $ne: null },
+          type: { $exists: true, $ne: null },
+          createdAt: { $exists: true, $ne: null }
+        }
+      },
       {
         $group: {
           _id: {
@@ -129,7 +143,14 @@ const getBreakdown = async (req, res) => {
   try {
     const userId = getUserObjectId(req);
     const breakdown = await History.aggregate([
-      { $match: { user: userId } },
+      {
+        $match: {
+          user: userId,
+          prediction: { $exists: true, $ne: null },
+          type: { $exists: true, $ne: null },
+          createdAt: { $exists: true, $ne: null }
+        }
+      },
       {
         $group: {
           _id: { type: "$type", label: "$prediction" },
@@ -157,7 +178,14 @@ const getPersonalSummary = async (req, res) => {
   try {
     const userId = getUserObjectId(req);
     const stats = await History.aggregate([
-      { $match: { user: userId } },
+      {
+        $match: {
+          user: userId,
+          prediction: { $exists: true, $ne: null },
+          type: { $exists: true, $ne: null },
+          createdAt: { $exists: true, $ne: null }
+        }
+      },
       {
         $group: {
           _id: null,
