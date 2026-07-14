@@ -66,7 +66,7 @@ CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
 PREDICT_RATE_LIMIT = os.getenv("PREDICT_RATE_LIMIT", "50 per minute")
 
 from extensions import limiter
-limiter.init_app(app, default_limits=[PREDICT_RATE_LIMIT])
+limiter.init_app(app)
 
 # Flask-Limiter uses a default 429 HTML response; standardize to JSON.
 @app.errorhandler(RateLimitExceeded)
