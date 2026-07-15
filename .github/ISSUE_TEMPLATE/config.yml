@@ -1,6 +1,6 @@
-blank_issues_enabled: true
+blank_issues_enabled: false
 
 contact_links:
   - name: 🔒 Report a Security Vulnerability
-    url: https://github.com/Userunknown84/Spam-Detection-System
+    url:https://github.com/Userunknown84/Spam-Detection-System/edit/main/.github/ISSUE_TEMPLATE/bug_report.yml
     about: Please report security vulnerabilities privately instead of creating a public issue.
