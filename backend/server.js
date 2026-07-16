@@ -27,7 +27,6 @@ const { corsOptions } = require('./config/corsConfig');
 require('./jobs/archivalCron');
 require('./jobs/webhookRetryCron');
 const { preventCacheStampede } = require('./middleware/cacheMiddleware');
-
 const adversarialRoutes = require('./routes/adversarialRoutes');
 app.use('/api/adversarial', adversarialRoutes);
 
