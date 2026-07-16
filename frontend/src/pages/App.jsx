@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
+import { useEffect } from 'react';
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -19,6 +20,7 @@ import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import EmailHeaderAnalyzer from "../components/EmailHeaderAnalyzer";
 import BulkSpamDetection from "../components/BulkSpamDetection";
+import { ResultBadge } from '../components/ResultBadge';
 import SpamInsightsDashboard from "../components/SpamInsightsDashboard";
 import EmailScannerDashboard from "../components/EmailScannerDashboard";
 import Chatbot from "../components/Chatbot";
@@ -33,7 +35,9 @@ function App() {
   const [text, setText] = useState("");
   const [result, setResult] = useState("");
   const [confidence, setConfidence] = useState(null);
+  const [severity, setSeverity] = useState(null);
   const [explanation, setExplanation] = useState(null);
+  const [urlRisk, setUrlRisk] = useState(null);
   const [loading, setLoading] = useState(false);
   const [type, setType] = useState("message");
   const [errorInfo, setErrorInfo] = useState(null);
@@ -43,15 +47,21 @@ function App() {
   const [lastCall, setLastCall] = useState(0);
   const [rateLimitError, setRateLimitError] = useState('');
   const [copied, setCopied] = useState(false);
+  // eslint-disable-next-line no-unused-vars
   const [showPatternLibrary, setShowPatternLibrary] = useState(false);
   const [hasCelebrated, setHasCelebrated] = useState(() => {
     return localStorage.getItem("firstPrediction") === "true";
   });
+  // eslint-disable-next-line no-unused-vars
   const [showCelebration, setShowCelebration] = useState(false);
 
+  // eslint-disable-next-line no-unused-vars
   const [darkMode, setDarkMode] = useState(false);
+  // eslint-disable-next-line no-unused-vars
   const [showHistory, setShowHistory] = useState(false);
+  // eslint-disable-next-line no-unused-vars
   const [theme, setTheme] = useState("ocean");
+  // eslint-disable-next-line no-unused-vars
   const [showThemes, setShowThemes] = useState(false);
 
   const [showSettings, setShowSettings] = useState(false);
@@ -66,6 +76,7 @@ function App() {
   const [soundEnabled, setSoundEnabled] = useState(true);
 
   // Detect URLs in text
+  // eslint-disable-next-line no-unused-vars
   const detectURLs = (text) => {
     if (!text) return [];
     const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -89,24 +100,28 @@ function App() {
         osc.start(ctx.currentTime + delay);
         osc.stop(ctx.currentTime + delay + 0.15);
       });
+  // eslint-disable-next-line no-unused-vars
     } catch (e) {
       /* silent fail */
     }
   };
 
   // Helper to get earned badges (returns array of badge objects)
+  // eslint-disable-next-line no-unused-vars
   const getEarnedBadges = () => {
     try {
       const streakCount = parseInt(localStorage.getItem('predictionStreak') || '0', 10);
       return Object.keys(Badges)
         .map((k) => ({ day: Number(k), ...Badges[k] }))
         .filter((b) => streakCount >= b.day);
+  // eslint-disable-next-line no-unused-vars
     } catch (e) {
       return [];
     }
   };
 
   // Placeholder for badge checking logic
+  // eslint-disable-next-line no-unused-vars
   const checkNewBadge = (newStreak) => {
     // simple implementation: if new streak matches a badge threshold, show popup
     if (Badges[newStreak]) {
@@ -117,6 +132,7 @@ function App() {
   };
 
   //Streak tracking
+  // eslint-disable-next-line no-unused-vars
   const [streak, setStreak] = useState(() => {
     const lastDate = localStorage.getItem("lastPredictionDate");
     const streakCount = parseInt(localStorage.getItem("streakCount") || "0", 10);
@@ -135,7 +151,9 @@ function App() {
     return streakCount;
   });
 
+  // eslint-disable-next-line no-unused-vars
   const [newBadgeEarned, setNewBadgeEarned] = useState(false);
+  // eslint-disable-next-line no-unused-vars
   const [showBadgePopup, setShowBadgePopup] = useState(false);
 
   //Badge Definitions
@@ -164,6 +182,7 @@ function App() {
         osc.start(ctx.currentTime + i * 0.12);
         osc.stop(ctx.currentTime + i * 0.12 + 0.15);
       });
+  // eslint-disable-next-line no-unused-vars
     } catch (e) { /* silent fail */ }
   };
 
@@ -269,7 +288,7 @@ function App() {
 const analyzeEmojiSentiment = (text) => {
   if (!text) return { positive: 0, negative: 0, neutral: 0 };
 
-  const emojiRegex = /([\u2700-\u27BF]|[\uE000-\uF8FF]|[\uD83C-\uDBFF\uDC00-\uDFFF])/g;
+  const emojiRegex = /([\u2700-\u27BF]|[\uE000-\uF8FF]|[\uD83C-\uDBFF\uDC00-\uDFFF])/gu;
   const matches = text.match(emojiRegex) || [];
 
   if (matches.length === 0) return { positive: 0, negative: 0, neutral: 0 };
@@ -341,7 +360,7 @@ const analyzeEmojiSentiment = (text) => {
     if (loading) return;
       try {
       setLoading(true);
-      const res = await api.post(`${import.meta.env.VITE_API_URI}/predict`, {
+      const res = await api.post('/predict', {
         text: text,
         type: type,
       });
@@ -352,7 +371,9 @@ const analyzeEmojiSentiment = (text) => {
       }
       setResult(res.data.prediction);
       setConfidence(res.data.confidence ?? null);
+      setSeverity(res.data.severity || null);
       setExplanation(res.data.explanation || null);
+      setUrlRisk(res.data.url_risk || null);
       setErrorInfo(null);
     } catch (error) {
       console.error('API Error:', error);
@@ -394,18 +415,33 @@ const analyzeEmojiSentiment = (text) => {
   });
   } finally {
       setLoading(false);
+    }
+  };
 
-      const today = new Date().toDateString();
-      const lastDate = localStorage.getItem('lastPredictionDate');
-      const currentStreak = parseInt(localStorage.getItem('predictionStreak') || '0');
+  // eslint-disable-next-line no-unused-vars
+  const [showButton, setShowButton] = useState(false);
 
-      if (lastDate !== today) {
-      const newStreak = currentStreak + 1;
-      localStorage.setItem('predictionStreak', newStreak.toString());
-      localStorage.setItem('lastPredictionDate', today);
-      setStreak(newStreak);
-      checkNewBadge(newStreak);
-      }
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowButton(window.scrollY > 300);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // eslint-disable-next-line no-unused-vars
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  // eslint-disable-next-line no-unused-vars
+  const getColor = () => {
+    if (result === "ham" || result === "safe")
+      return "text-green-600 dark:text-green-400";
+    if (result === "spam" || result === "malicious")
+      return "text-red-600 dark:text-red-400";
+    if (result === "smishing") return "text-orange-600 dark:text-orange-400";
+    if (result === "Error") {
+      return isDark ? "text-yellow-300" : "text-yellow-700";
     }
   };
 
@@ -431,6 +467,8 @@ const analyzeEmojiSentiment = (text) => {
   const confidencePct = confidence !== null ? Math.min(confidence * 50 + 50, 100).toFixed(1) : "0.0";
   const confidenceValue = Number(confidencePct);
   const riskLevel = confidenceValue >= 80 ? "High" : confidenceValue >= 50 ? "Medium" : "Low";
+  const severityTone = severity?.level === "Critical" ? "text-red-600 dark:text-red-400" : severity?.level === "High" ? "text-orange-600 dark:text-orange-400" : severity?.level === "Moderate" ? "text-yellow-700 dark:text-yellow-400" : "text-green-700 dark:text-green-400";
+  const emojiAnalysis = useMemo(() => analyzeEmojiSentiment(text), [text]);
 
   return (
     <div className={`min-h-screen flex flex-col items-center px-4 py-8 pb-32 transition-all duration-500 ${isDark ? activeTheme.dark : activeTheme.light}`}>
@@ -494,7 +532,7 @@ const analyzeEmojiSentiment = (text) => {
             formData.append('avatar', file);
             try {
               const token = localStorage.getItem('token');
-              const res = await api.post(`${import.meta.env.VITE_API_URI || ''}/api/v1/auth/avatar`, formData, {
+              const res = await api.post('/api/v1/auth/avatar', formData, {
                 headers: {
                   'Content-Type': 'multipart/form-data',
                   Authorization: `Bearer ${token}`
@@ -668,6 +706,19 @@ const analyzeEmojiSentiment = (text) => {
                       const detected = detectType(value);
                       setType(detected);
                     }}
+                    onKeyDown={(e) => {
+                      // Support Ctrl+Enter (Windows/Linux) and Cmd+Enter (macOS) to submit prediction
+                      if (
+                        (e.ctrlKey || e.metaKey) &&
+                        e.key === "Enter" &&
+                        !loading &&
+                        text.trim().length > 0 &&
+                        text.length <= 5000
+                      ) {
+                        e.preventDefault(); // Prevent default newline insertion
+                        handlePredict();
+                      }
+                    }}
                   />
 
                   {text && (
@@ -784,7 +835,7 @@ const analyzeEmojiSentiment = (text) => {
                       </span>
                     </div>
                      
-                    <URLPreview url={text} darkMode={isDark}>
+                    <URLPreview url={text} darkMode={isDark} urlRisk={urlRisk}>
                       <span className="text-blue-500 underline cursor-pointer">
                        {text}
                       </span>
@@ -818,6 +869,46 @@ const analyzeEmojiSentiment = (text) => {
                       </>
                     )}
 
+                    {severity && result !== "Error" && (
+                      <div className={`mt-4 rounded-2xl border p-4 text-left ${isDark ? "border-slate-700 bg-slate-800/60" : "border-slate-200 bg-slate-50"}`}>
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-wide opacity-70">Severity</p>
+                            <p className={`text-xl font-bold ${severityTone}`}>{severity.level}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs font-semibold uppercase tracking-wide opacity-70">Score</p>
+                            <p className={`text-2xl font-black ${severityTone}`}>{severity.score.toFixed(1)}/10</p>
+                          </div>
+                        </div>
+                        {severity.indicators?.length > 0 && (
+                          <div className="mt-3">
+                            <p className="text-xs font-semibold uppercase tracking-wide opacity-70 mb-2">Threat Indicators</p>
+                            <div className="flex flex-wrap gap-2">
+                              {severity.indicators.map((indicator) => (
+                                <span key={indicator} className={`rounded-full px-2.5 py-1 text-xs font-semibold ${isDark ? "bg-slate-700 text-slate-100" : "bg-white text-slate-700 border border-slate-200"}`}>
+                                  {indicator}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {severity.breakdown && (
+                          <div className="mt-3">
+                            <p className="text-xs font-semibold uppercase tracking-wide opacity-70 mb-2">Breakdown</p>
+                            <div className="grid gap-2 text-sm">
+                              {Object.entries(severity.breakdown).filter(([key]) => key !== "total_score").map(([key, value]) => (
+                                <div key={key} className="flex items-center justify-between rounded-lg bg-black/5 dark:bg-white/5 px-2.5 py-1.5">
+                                  <span className="capitalize">{key.replace(/_/g, " ")}</span>
+                                  <span className="font-semibold">{Number(value).toFixed(1)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {result && confidence !== null && result !== "Error" && (
                       <div className="mt-4 text-left">
                         <p className="text-xs font-semibold mb-1 opacity-70">Model Confidence: {confidencePct}%</p>
@@ -847,27 +938,27 @@ const analyzeEmojiSentiment = (text) => {
                     ))}
 
                     {/* Emoji Sentiment Analysis */}
-                    {result && result !== "Error" && text && analyzeEmojis(text).count > 0 && (
+                    {result && result !== "Error" && text && emojiAnalysis.count > 0 && (
                      <div className="mt-4 pt-3 border-t border-slate-700/20">
                       <p className="text-xs font-semibold opacity-70 mb-2 flex items-center gap-1">
                          <span>😊</span> Emoji Sentiment
                       </p>
                      <div className="flex flex-wrap items-center gap-3">
                         <span className="text-lg">
-                        {analyzeEmojis(text).emojis.join(' ')}
+                        {emojiAnalysis.emojis.join(' ')}
                          </span>
                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                         analyzeEmojis(text).sentiment === 'positive' 
-                         ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
-                         : analyzeEmojis(text).sentiment === 'negative'
+                         emojiAnalysis.sentiment === 'positive'
+                         ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                         : emojiAnalysis.sentiment === 'negative'
                          ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
                          : 'bg-gray-100 text-gray-700 dark:bg-gray-800/30 dark:text-gray-400'
                         }`}>
-                        {analyzeEmojis(text).sentiment === 'positive' && '😊 Positive'}
-                        {analyzeEmojis(text).sentiment === 'negative' && '😢 Negative'}
-                        {analyzeEmojis(text).sentiment === 'neutral' && '😐 Neutral'}
+                        {emojiAnalysis.sentiment === 'positive' && '😊 Positive'}
+                        {emojiAnalysis.sentiment === 'negative' && '😢 Negative'}
+                        {emojiAnalysis.sentiment === 'neutral' && '😐 Neutral'}
                         </span>
-                        {analyzeEmojis(text).spamDetected && (
+                        {emojiAnalysis.spamDetected && (
                          <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-500 text-white">
                           ⚠️ Spam Emojis
                          </span>
@@ -923,6 +1014,7 @@ const analyzeEmojiSentiment = (text) => {
                       setResult("");
                       setConfidence(null);
                       setExplanation(null);
+                      setUrlRisk(null);
                       setErrorInfo(null);
                       setCopied(false);
                       setType("message");
@@ -949,118 +1041,61 @@ const analyzeEmojiSentiment = (text) => {
                 <FeatureImportance darkMode={isDark} />
                 <CensorshipMode text={text} darkMode={isDark} />
 
-                {/* SPAM WORD OF THE DAY */}
-                {wordOfDay && (
-                  <div className={`mt-6 p-4 rounded-xl border ${isDark ? 'bg-slate-800/30 border-slate-700' : 'bg-white/40 border-slate-200'}`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-semibold opacity-70">📚 Spam Word of the Day</h3>
-                      <button onClick={fetchWordOfTheDay} className="text-xs opacity-50 hover:opacity-100 transition-opacity" title="Refresh word of the day">
-                        🔄
-                      </button>
-                    </div>
-                    {wordLoading ? (
-                      <div className="h-8 w-48 bg-slate-300 rounded animate-pulse"></div>
-                    ) : (
-                      <>
-                        <div className="flex items-center gap-3">
-                          <span className={`text-2xl font-bold ${isDark ? 'text-yellow-400' : 'text-yellow-600'}`}>
-                            {wordOfDay.word || 'No spam detected today'}
-                          </span>
-                          {wordOfDay.count && (
-                            <span className="text-sm opacity-60">
-                              {wordOfDay.count} {wordOfDay.count === 1 ? 'detection' : 'detections'}
-                            </span>
-                          )}
-                        </div>
-                        {wordOfDay.definition && (
-                          <p className="text-sm mt-2 opacity-75 leading-relaxed">{wordOfDay.definition}</p>
-                        )}
-                        {wordOfDay.context && (
-                          <div className={`mt-2 p-2 rounded text-xs ${isDark ? 'bg-slate-900/50' : 'bg-slate-100/50'}`}>
-                            <span className="opacity-60">Example: </span>
-                            <span className="italic">"{wordOfDay.context}"</span>
-                          </div>
-                        )}
-                        {wordOfDay.tips && (
-                          <div className={`mt-2 p-2 rounded text-xs ${isDark ? 'bg-blue-900/20' : 'bg-blue-50'}`}>
-                            💡 {wordOfDay.tips}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                )}
-
-                <div className="mt-6 p-4 rounded-xl border text-left">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-semibold opacity-70">📈 Spam Detection Insights</span>
-                    <div className="flex items-center gap-2">
-                      {getEarnedBadges().map((badge) => (
-                        <span key={badge.day} className="text-lg" title={badge.name}>
-                          {badge.icon}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <WordCloud darkMode={isDark} />
-              </>
-            ) : activeTab === "bulk" ? (
-              <BulkSpamDetection />
-            ) : activeTab === "insights" ? (
-              <SpamInsightsDashboard />
-            ) : activeTab === "scanner" ? (
-              <EmailScannerDashboard />
-            ) : activeTab === "rules" ? (
-              <RulesManager />
-            ) : activeTab === "history" ? (
-              <History />
-            ) : (
-              <EmailHeaderAnalyzer />
-            )}
-
-            {showCelebration && (
-              <div className="celebration-modal" style={{
-                position: 'fixed',
-                inset: 0,
-                background: 'rgba(0,0,0,0.6)',
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                zIndex: 1000
-              }}>
-                <div style={{
-                  background: 'white',
-                  padding: '40px',
-                  borderRadius: '20px',
-                  textAlign: 'center',
-                  maxWidth: '400px',
-                  width: '90%'
-                }}>
-                  <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🎉</div>
-                  <h2 style={{ color: '#7c3aed' }}>First Prediction Complete!</h2>
-                  <p style={{ color: '#6b7280', marginBottom: '1.5rem' }}>
-                    You're on your way to becoming a spam detection expert!
-                  </p>
-                  <button
-                    onClick={() => setShowCelebration(false)}
-                    style={{
-                      padding: '10px 30px',
-                      background: '#7c3aed',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '8px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Continue Learning →
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+                  {wordOfDay && (
+  <div className={`mt-6 p-4 rounded-xl border ${isDark ? 'bg-slate-800/30 border-slate-700' : 'bg-white/40 border-slate-200'}`}>
+    <div className="flex items-center justify-between mb-2">
+      <h3 className="text-sm font-semibold opacity-70">📚 Spam Word of the Day</h3>
+      <button onClick={fetchWordOfTheDay} className="text-xs opacity-50 hover:opacity-100 transition-opacity" title="Refresh word of the day">
+        
+      </button>
+    </div>
+    {wordLoading ? (
+      <div className="h-8 w-48 bg-slate-300 rounded animate-pulse"></div>
+    ) : (
+      <>
+        <div className="flex items-center gap-3">
+          <span className={`text-2xl font-bold ${isDark ? 'text-yellow-400' : 'text-yellow-600'}`}>
+            {wordOfDay.word || 'No spam detected today'}
+          </span>
+          {wordOfDay.count && (
+            <span className="text-sm opacity-60">
+              {wordOfDay.count} {wordOfDay.count === 1 ? 'detection' : 'detections'}
+            </span>
+          )}
         </div>
+        {wordOfDay.definition && (
+          <p className="text-sm mt-2 opacity-75 leading-relaxed">{wordOfDay.definition}</p>
+        )}
+        {wordOfDay.context && (
+          <div className={`mt-2 p-2 rounded text-xs ${isDark ? 'bg-slate-900/50' : 'bg-slate-100/50'}`}>
+            <span className="opacity-60">Example: </span>
+            <span className="italic">"{wordOfDay.context}"</span>
+          </div>
+        )}
+        {wordOfDay.tips && (
+          <div className={`mt-2 p-2 rounded text-xs ${isDark ? 'bg-blue-900/20' : 'bg-blue-50'}`}>
+             {wordOfDay.tips}
+          </div>
+        )}
+      </>
+    )}
+  </div>
+)}
+
+              <FeatureImportance darkMode={isDark} />
+            </>
+          ) : activeTab === "bulk" ? (
+            <BulkSpamDetection />
+          ) : activeTab === "insights" ? (
+            <SpamInsightsDashboard />
+          ) : activeTab === "scanner" ? (
+            <EmailScannerDashboard />
+          ) : (
+            <EmailHeaderAnalyzer />
+          )}
+          <WordCloud darkMode={isDark} />
+        </div>
+      </div>
       </div>
       <Footer darkMode={isDark} />
       <Chatbot />
