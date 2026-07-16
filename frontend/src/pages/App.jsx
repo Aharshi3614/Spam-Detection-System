@@ -360,7 +360,7 @@ const analyzeEmojiSentiment = (text) => {
     if (loading) return;
       try {
       setLoading(true);
-      const res = await api.post(`${import.meta.env.VITE_API_URI}/predict`, {
+      const res = await api.post('/predict', {
         text: text,
         type: type,
       });
@@ -532,7 +532,7 @@ const analyzeEmojiSentiment = (text) => {
             formData.append('avatar', file);
             try {
               const token = localStorage.getItem('token');
-              const res = await api.post(`${import.meta.env.VITE_API_URI || ''}/api/v1/auth/avatar`, formData, {
+              const res = await api.post('/api/v1/auth/avatar', formData, {
                 headers: {
                   'Content-Type': 'multipart/form-data',
                   Authorization: `Bearer ${token}`
