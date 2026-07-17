@@ -248,6 +248,30 @@ const analyticsRoutes = require("./routes/analyticsRoutes");
 const chatRoutes = require("./routes/chatRoutes");
 const ruleRoutes = require("./routes/ruleRoutes");
 const reportRoutes = require("./routes/reportRoutes");
+const jobRoutes = require("./routes/jobRoutes");
+
+const { createBullBoard } = require('@bull-board/api');
+const { BullMQAdapter } = require('@bull-board/api/bullMQAdapter');
+const { ExpressAdapter } = require('@bull-board/express');
+const { predictionQueue } = require('./jobs/predictionQueue');
+
+const serverAdapter = new ExpressAdapter();
+serverAdapter.setBasePath('/admin/queues');
+createBullBoard({
+  queues: [new BullMQAdapter(predictionQueue)],
+  serverAdapter: serverAdapter,
+});
+
+const { protect } = require('./middleware/authMiddleware');
+const adminAuth = [protect, (req, res, next) => {
+    if (req.user && req.user.role === 'admin') {
+        next();
+    } else {
+        res.status(403).json({ error: 'Access denied, admin only' });
+    }
+}];
+
+app.use('/admin/queues', adminAuth, serverAdapter.getRouter());
 
 
 app.use("/", predictionRoutes);
@@ -262,6 +286,7 @@ app.use("/api/v1/analytics", analyticsRoutes);
 app.use("/api/v1/chat", chatRoutes);
 app.use("/api/v1/rules", ruleRoutes);
 app.use("/api/v1/reports", reportRoutes);
+app.use("/api/v1/jobs", jobRoutes);
 
 // Keep old routes for backward compatibility
 app.use("/api/auth", authRoutes);
