@@ -37,6 +37,10 @@ app.use('/api/evomail', evoMailRoutes);
 // ===== STARTUP TIMER =====
 const SERVER_START_TIME = Date.now();
 const startupLogs = [];
+// Add Poisoning Defense routes
+const poisoningRoutes = require('./routes/poisoningRoutes');
+app.use('/api/poisoning', poisoningRoutes);
+
 // Add VBSF routes
 const visualRoutes = require('./routes/visualRoutes');
 app.use('/api/visual', visualRoutes);
