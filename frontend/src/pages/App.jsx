@@ -10,7 +10,7 @@ import FeatureImportance from "../components/FeatureImportance";
 import PredictionExplanation from "../components/PredictionExplanation";
 import History from "../components/History";
 import WordCloud from "../components/WordCloud";
-import ManipulationIndex from '../components/ManipulationIndex';
+import ManipulationIndex from './ManipulationIndex';
 import FeedbackWidget from "../components/FeedbackWidget";
 import Login from "./Login.jsx";
 import DeSpamify from '../components/DeSpamify';
