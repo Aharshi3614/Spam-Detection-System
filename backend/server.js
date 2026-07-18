@@ -27,6 +27,7 @@ require('./jobs/archivalCron');
 const { preventCacheStampede } = require('./middleware/cacheMiddleware');
 const healthRoutes = require("./routes/healthRoutes");
 const predictionRoutes = require("./routes/predictionRoutes");
+const feedbackRoutes = require('./routes/feedbackRoutes');
 const emailIntegrationRoutes = require("./routes/emailIntegrationRoutes");
 const imapRoutes = require("./routes/imapRoutes");
 const utilityRoutes = require("./routes/utilityRoutes");
@@ -60,6 +61,7 @@ const app = express();
 // Apply standard throttling to the heavy ML prediction route
 const { apiLimiter } = require('./middleware/rateLimiter');
 app.use('/predict', apiLimiter);
+app.use('/api', feedbackRoutes);
 
 // Trust the first proxy so express-rate-limit correctly identifies user IPs
 
