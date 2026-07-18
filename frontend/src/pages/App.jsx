@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import api from "../utils/axiosInstance";
 import "../App.css";
+import { Settings } from './pages/Settings';
 import CensorshipMode from '../components/CensorshipMode';
 import FeatureImportance from "../components/FeatureImportance";
 import PredictionExplanation from "../components/PredictionExplanation";
@@ -1003,6 +1004,8 @@ const analyzeEmojiSentiment = (text) => {
                     </div>
                   </div>
                 </div>
+
+                <Route path="/settings" element={<Settings />} />
 
                 <WordCloud darkMode={isDark} />
               </>
