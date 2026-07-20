@@ -1,8 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import api from '../utils/axiosInstance';
-
-// Optional: toast library
-// import toast from 'react-hot-toast';
 
 const DeSpamify = ({ text, darkMode, onClose }) => {
   const [deSpammedText, setDeSpammedText] = useState('');
@@ -15,9 +12,6 @@ const DeSpamify = ({ text, darkMode, onClose }) => {
   // ✅ Main de-spamify function
   const deSpamifyText = async () => {
     if (!text || !text.trim()) {
-      if (typeof toast !== 'undefined') {
-        toast.error('Please enter some text to de-spamify');
-      }
       return;
     }
     
@@ -29,30 +23,28 @@ const DeSpamify = ({ text, darkMode, onClose }) => {
         tone: tone
       });
       setDeSpammedText(response.data.deSpammedText);
-      
-      if (typeof toast !== 'undefined') {
-        toast.success('✨ Message de-spamified successfully!');
-      }
     } catch (error) {
       console.error('De-spamification failed:', error);
       const fallback = deSpamifyFallback(text);
       setDeSpammedText(fallback);
-      
-      if (typeof toast !== 'undefined') {
-        toast.error('Failed to de-spamify. Using fallback...');
-      }
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ Handle Enter key press
+  // ✅ Handle Enter key press (if parent passes onKeyDown)
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !loading) {
-      e.preventDefault(); // Prevent form submission
+      e.preventDefault();
       deSpamifyText();
     }
   };
+
+  // ✅ Auto-trigger when text changes and Enter is pressed (if parent implements)
+  useEffect(() => {
+    // Optional: If you want to auto-trigger on text change
+    // But better to let user press Enter or click button
+  }, [text]);
 
   const deSpamifyFallback = (text) => {
     let result = text;
@@ -175,7 +167,7 @@ const DeSpamify = ({ text, darkMode, onClose }) => {
         </div>
       )}
 
-      {/* ✅ MAIN BUTTON WITH KEYBOARD SHORTCUT TOOLTIP */}
+      {/* ✅ MAIN BUTTON WITH LOADING SPINNER + TOOLTIP */}
       <div className="relative">
         <button
           onClick={deSpamifyText}
@@ -192,8 +184,8 @@ const DeSpamify = ({ text, darkMode, onClose }) => {
           )}
         </button>
         
-        {/* ✅ Tooltip: "Press Enter to check" */}
-        {!loading && !deSpammedText && (
+        {/* ✅ Tooltip: "Press Enter to submit" */}
+        {!loading && !deSpammedText && text && (
           <div className="mt-2 text-xs text-center text-slate-400 dark:text-slate-500">
             ⌨️ Press <kbd className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-xs font-mono border border-slate-300 dark:border-slate-600">Enter</kbd> to submit
           </div>
