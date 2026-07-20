@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import api from '../utils/axiosInstance';
 
-// Optional: agar toast library use karte ho toh import karo, nahi toh hata dena
+// Optional: toast library
 // import toast from 'react-hot-toast';
 
 const DeSpamify = ({ text, darkMode, onClose }) => {
@@ -12,17 +12,15 @@ const DeSpamify = ({ text, darkMode, onClose }) => {
   const [tone, setTone] = useState('neutral');
   const [showOriginal, setShowOriginal] = useState(true);
 
+  // ✅ Main de-spamify function
   const deSpamifyText = async () => {
-    // ✅ Prevent if no text
     if (!text || !text.trim()) {
-      // Agar toast hai toh dikhao
       if (typeof toast !== 'undefined') {
         toast.error('Please enter some text to de-spamify');
       }
       return;
     }
     
-    // ✅ Start loading
     setLoading(true);
     
     try {
@@ -32,24 +30,27 @@ const DeSpamify = ({ text, darkMode, onClose }) => {
       });
       setDeSpammedText(response.data.deSpammedText);
       
-      // ✅ Success toast (optional)
       if (typeof toast !== 'undefined') {
         toast.success('✨ Message de-spamified successfully!');
       }
     } catch (error) {
       console.error('De-spamification failed:', error);
-      
-      // ✅ Fallback
       const fallback = deSpamifyFallback(text);
       setDeSpammedText(fallback);
       
-      // ✅ Error toast (optional)
       if (typeof toast !== 'undefined') {
         toast.error('Failed to de-spamify. Using fallback...');
       }
     } finally {
-      // ✅ Stop loading
       setLoading(false);
+    }
+  };
+
+  // ✅ Handle Enter key press
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !loading) {
+      e.preventDefault(); // Prevent form submission
+      deSpamifyText();
     }
   };
 
@@ -174,22 +175,30 @@ const DeSpamify = ({ text, darkMode, onClose }) => {
         </div>
       )}
 
-      {/* ✅ MAIN BUTTON WITH LOADING SPINNER */}
-      <button
-        onClick={deSpamifyText}
-        disabled={loading}
-        className="w-full py-2.5 rounded-lg font-semibold transition bg-green-500 hover:bg-green-600 text-white disabled:opacity-50"
-      >
-        {loading ? (
-          <span className="flex items-center justify-center gap-2">
-            {/* ✅ Spinner Animation */}
-            <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
-            De-Spamifying...
-          </span>
-        ) : (
-          '🛡️ De-Spamify Message'
+      {/* ✅ MAIN BUTTON WITH KEYBOARD SHORTCUT TOOLTIP */}
+      <div className="relative">
+        <button
+          onClick={deSpamifyText}
+          disabled={loading}
+          className="w-full py-2.5 rounded-lg font-semibold transition bg-green-500 hover:bg-green-600 text-white disabled:opacity-50"
+        >
+          {loading ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
+              De-Spamifying...
+            </span>
+          ) : (
+            '🛡️ De-Spamify Message'
+          )}
+        </button>
+        
+        {/* ✅ Tooltip: "Press Enter to check" */}
+        {!loading && !deSpammedText && (
+          <div className="mt-2 text-xs text-center text-slate-400 dark:text-slate-500">
+            ⌨️ Press <kbd className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-xs font-mono border border-slate-300 dark:border-slate-600">Enter</kbd> to submit
+          </div>
         )}
-      </button>
+      </div>
 
       {/* Result */}
       {deSpammedText && (

@@ -350,6 +350,9 @@ const analyzeEmojiSentiment = (text) => {
     fetchWordOfTheDay();
   }, []);
 
+  // ============================================
+  // ✅ MAIN PREDICT FUNCTION
+  // ============================================
   const handlePredict = async () => {
     if (!text || text.trim().length === 0) return;
     const now = Date.now();
@@ -420,6 +423,19 @@ const analyzeEmojiSentiment = (text) => {
   });
   } finally {
       setLoading(false);
+    }
+  };
+
+  // ============================================
+  // ✅ HANDLE ENTER KEY (NEW - Issue #946)
+  // ============================================
+  const handleKeyDown = (e) => {
+    // Check if Enter key is pressed and not Shift+Enter (for multi-line)
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault(); // Prevent newline in textarea
+      if (!loading && text.trim().length > 0) {
+        handlePredict();
+      }
     }
   };
 
@@ -662,13 +678,13 @@ const analyzeEmojiSentiment = (text) => {
                 onClick={() => setActiveTab("rules")}
                 className={`pb-1 px-4 transition-all border-b-2 ${activeTab === "rules" ? "border-current opacity-100" : "border-transparent opacity-50 hover:opacity-75"}`}
               >
+                Rules Manager
+              </button>
               <button
                  onClick={() => setShowPatternLibrary(true)}
                  className="px-4 py-2.5 rounded-xl font-bold transition-all active:scale-95 flex items-center gap-2 shadow-md"
               >
               Patterns
-              </button>
-                Rules Manager
               </button>
               {user?.role === 'admin' && (
                 <>
@@ -682,532 +698,146 @@ const analyzeEmojiSentiment = (text) => {
                     onClick={() => setActiveTab("admin-feedback")}
                     className={`pb-1 px-4 transition-all border-b-2 ${activeTab === "admin-feedback" ? "border-current opacity-100 text-purple-500" : "border-transparent opacity-50 hover:opacity-75"}`}
                   >
-                    Admin Feedback
+                    Feedback
                   </button>
                 </>
               )}
-              <button
-                onClick={() => setActiveTab("history")}
-                className={`pb-1 px-4 transition-all border-b-2 ${activeTab === "history" ? "border-current opacity-100" : "border-transparent opacity-50 hover:opacity-75"}`}
-              >
-              {(result === "spam" || result === "malicious" || result === "smishing") && (
-              <button
-              onClick={() => setShowDeSpamify(true)}
-              className="mt-3 px-4 py-2 rounded-lg bg-purple-500 hover:bg-purple-600 text-white font-semibold transition"
-              >
-              De-Spamify Message
-              </button>
-              )}
-
-                History
-              </button>
-              <button
-                onClick={() => navigate("/dashboard")}
-                className="pb-1 px-4 transition-all border-b-2 border-transparent opacity-50 hover:opacity-75"
-              >
-                <span className="inline-flex items-center gap-1 whitespace-nowrap">
-                  <span>📊</span>
-                  <span>Dashboard</span>
-                </span>
-              </button>
             </div>
 
-            {activeTab === "detector" ? (
-                <>
-                {/* Enhanced Input Section */}
-                <div className="relative w-full mb-4 group text-left">
+            {/* ============================================
+                DETECTOR TAB (WITH ENTER KEY SUPPORT)
+                ============================================ */}
+            {activeTab === "detector" && (
+              <>
+                <div className="relative">
                   <textarea
-                    className={`w-full border p-4 pr-12 rounded-2xl focus:outline-none focus:ring-2 resize-none text-sm sm:text-base transition-all shadow-inner leading-relaxed [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full ${isDark ? `${activeTheme.inputDark} focus:border-blue-500/50 [&::-webkit-scrollbar-thumb]:bg-slate-700 hover:[&::-webkit-scrollbar-thumb]:bg-slate-600` : `${activeTheme.input} focus:border-indigo-500/50 [&::-webkit-scrollbar-thumb]:bg-slate-300 hover:[&::-webkit-scrollbar-thumb]:bg-slate-400`}`}
-                    rows="5"
-                    placeholder={type === "url" ? "Paste or type the suspicious website link URL here to test..." : type === "message" ? "Type your SMS or chat message content here for inspection..." : "Paste the full text or body of your email content here..."}
+                    className="w-full h-48 p-4 rounded-2xl border-2 border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-lg transition-all duration-200 focus:border-emerald-500 dark:focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/20 dark:focus:ring-emerald-400/20 outline-none resize-y disabled:opacity-60"
+                    placeholder="Paste or type text, email, or URL to analyze..."
                     value={text}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setText(value);
-                      const detected = detectType(value);
-                      setType(detected);
-                    }}
-                    onKeyDown={(e) => {
-                      // Support Ctrl+Enter (Windows/Linux) and Cmd+Enter (macOS) to submit prediction
-                      if (
-                        (e.ctrlKey || e.metaKey) &&
-                        e.key === "Enter" &&
-                        !loading &&
-                        text.trim().length > 0 &&
-                        text.length <= 5000
-                      ) {
-                        e.preventDefault(); // Prevent default newline insertion
-                        handlePredict();
-                      }
-                    }}
+                    onChange={(e) => setText(e.target.value)}
+                    onKeyDown={handleKeyDown} // ✅ ENTER KEY SUPPORT
+                    disabled={loading}
                   />
+                  
+                  {/* ✅ KEYBOARD SHORTCUT HINT */}
+                  <div className="absolute bottom-3 right-4 text-xs text-slate-400 dark:text-slate-500 flex items-center gap-2">
+                    <span>⏎</span>
+                    <span>Press <kbd className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-xs font-mono border border-slate-300 dark:border-slate-600">Enter</kbd> to submit</span>
+                  </div>
 
-                  {text && (
-                    <button
-                      onClick={() => setText("")}
-                      className={`absolute top-3.5 right-3.5 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-all hover:scale-110 shadow-sm ${isDark ? "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white" : "bg-slate-200 text-slate-500 hover:bg-slate-300 hover:text-slate-800"}`}
-                      title="Clear input"
-                    >
-                      ✕
-                    </button>
-                  )}
-                  {text && (
-                    <div className="flex flex-wrap justify-between items-center mt-1.5 px-1 text-xs font-medium tracking-wide opacity-70 gap-1">
-                      <div className="flex flex-wrap gap-3">
-                       <span>📖 {calculateReadingTime(text)}</span>
-                      <span>📝 {getTextStats(text).words} words</span>
-                      <span>📏 Avg {getTextStats(text).avgWordLength} chars</span>
-                      <span>📄 {getTextStats(text).sentences} sentences</span>
-                    </div>
-                    {text.length > 5000 ? (
-                      <span className="text-red-500 font-bold">
-                        {Math.max(0, text.length).toLocaleString()} / 5000 characters (Limit exceeded)
-                      </span>
-                    ) : (
-                      <span className={text.length > 500 ? "text-orange-500" : ""}>
-                        {Math.max(0, text.length).toLocaleString()} characters
-                      </span>
-                    )}
-                  </div>)}
-
+                  {/* Character Count */}
+                  <div className="absolute bottom-3 left-4 text-xs text-slate-400 dark:text-slate-500">
+                    {text.length} characters
+                  </div>
                 </div>
 
+                {/* Rate Limit Error */}
+                {rateLimitError && (
+                  <div className="mt-3 text-sm text-yellow-600 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-950/30 px-4 py-2 rounded-xl border border-yellow-300 dark:border-yellow-700">
+                    {rateLimitError}
+                  </div>
+                )}
+
+                {/* Check Button */}
                 <button
-                  onClick={() => {
-                    if (!text.trim()) return;
-                    handlePredict();
-                  }}
-                  disabled={loading || text.trim().length === 0 || text.length > 5000}
-                  className={`mt-2 w-full py-3.5 rounded-xl font-bold text-white shadow-md active:scale-95 transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${activeTheme.accent}`}
+                  onClick={handlePredict}
+                  disabled={loading || !text.trim()}
+                  className={`w-full mt-4 py-3.5 rounded-xl font-bold text-white transition-all active:scale-95 shadow-lg flex items-center justify-center gap-3 ${
+                    loading || !text.trim()
+                      ? 'bg-slate-400 dark:bg-slate-600 cursor-not-allowed'
+                      : 'bg-emerald-600 hover:bg-emerald-700 hover:shadow-emerald-500/30'
+                  }`}
                 >
-                  {loading && (
-                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
+                  {loading ? (
+                    <>
+                      <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></span>
+                      Analyzing...
+                    </>
+                  ) : (
+                    '🔍 Check'
                   )}
-                  {loading ? "Analyzing..." : `Analyze ${type === "url" ? "URL" : type}`}
                 </button>
 
-                {loading && (
-                <div className="mt-5 p-4">
-                  <Skeleton height={200} borderRadius="16px" />
-                  <div className="mt-4">
-                    <Skeleton height={20} width="60%" />
-                    <Skeleton height={30} width="40%" />
-                    <Skeleton height={10} />
-                  </div>
-                </div>
-                )}
-
-                {/* Error Section */}
-                {result === "Error" && errorInfo && (
-                  <div className={`mt-5 rounded-3xl p-5 shadow-lg border ${isDark ? "bg-yellow-500/10 border-yellow-600/40" : "bg-yellow-50 border-yellow-300"}`}>
-                    <div className="flex items-start gap-3">
-                      <span className="text-2xl leading-none">⚠️</span>
-                      <div className="flex-1">
-                        <h3 className={`text-base font-bold ${isDark ? "text-yellow-300" : "text-yellow-800"}`}>
-                          {errorInfo.title}
-                        </h3>
-                        <p className={`mt-1 text-sm ${isDark ? "text-yellow-200/80" : "text-yellow-700"}`}>
-                          {errorInfo.message}
-                        </p>
-                        {errorInfo.retryable && (
-                          <button
-                            onClick={handlePredict}
-                            disabled={loading}
-                            className={`mt-3 px-4 py-2 rounded-lg font-semibold text-sm transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed ${isDark ? "bg-yellow-500 text-slate-900 hover:bg-yellow-400" : "bg-yellow-500 text-white hover:bg-yellow-600"}`}
-                          >
-                            {loading ? "Retrying..." : "🔄 Retry"}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Results Section */}
-                {result && result !== "Error" && (
-                  <div className={`mt-5 rounded-3xl p-5 shadow-lg border ${isDark ? "bg-slate-900/50 border-slate-700" : "bg-white/70 border-slate-200"}`}>
-                    <div className="flex justify-between items-center mb-5">
-                      <div className="flex items-center gap-2">
-                        <h2 className="text-lg font-bold">📊 Analysis Result</h2>
-                        <button
-                          onClick={() => {
-                            const scoreStr = confidence !== null ? ` | Confidence: ${confidencePct}%` : "";
-                            const copyText = `Prediction: ${result === 'ham' || result === 'safe' ? 'Safe' : result === 'spam' || result === 'malicious' ? 'Spam/Malicious' : result === 'smishing' ? 'Fraud' : result}${scoreStr}`;
-                            navigator.clipboard.writeText(copyText);
-                            setCopied(true);
-                            setTimeout(() => setCopied(false), 2000);
-                          }}
-                          className={`ml-1 w-7 h-7 flex items-center justify-center rounded-full transition-all text-[11px] ${isDark ? "hover:bg-slate-700 bg-slate-800 text-slate-300" : "hover:bg-slate-200 bg-slate-100 text-slate-600"}`}
-                          title="Copy Result to Clipboard"
-                        >
-                          {copied ? "✅" : "📋"}
-                        </button>
-                      </div>
-                      <span className={`px-4 py-2 rounded-full text-sm font-bold ${result === "ham" || result === "safe" ? "bg-green-500 text-white" : result === "spam" || result === "malicious" ? "bg-red-500 text-white" : result === "smishing" ? "bg-orange-500 text-white" : "bg-yellow-500 text-white"}`}>
-                        {result === "ham" && "✅ Safe"}
-                        {result === "safe" && "✅ Safe"}
-                        {result === "spam" && "🚫 Spam"}
-                        {result === "malicious" && "🚨 Malicious"}
-                        {result === "smishing" && "⚠️ Fraud"}
-                        {result === "Error" && "⚠️ Error"}
-                      </span>
-                    </div>
-                     
-                    <URLPreview url={text} darkMode={isDark} urlRisk={urlRisk}>
-                      <span className="text-blue-500 underline cursor-pointer">
-                       {text}
-                      </span>
-                    </URLPreview>
-
-                    {explanation && result !== "Error" && (
-                    <PredictionExplanation 
-                      explanation={explanation} 
-                      result={result} 
-                      darkMode={isDark} 
-                     />
-                    )}
-
-                    {/* Manipulation Index */}
-                    <ManipulationIndex 
-                      text={text} 
-                      result={result} 
-                      darkMode={isDark} 
-                    />
-                    {rateLimitError && (
-                      <div className="mt-2 p-2 text-sm text-yellow-600 bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400 rounded-lg">
-                      {rateLimitError}
-                    </div>
-                    )}
-
-                    {confidence !== null && result !== "Error" && (
-                      <>
-                        <p className="text-sm opacity-70 mb-1">Confidence Score</p>
-                        <h3 className="text-3xl font-bold mb-4">{confidencePct}%</h3>
-                        <div className={`w-full rounded-full h-3 mb-5 ${isDark ? "bg-slate-700" : "bg-slate-200"}`} />
-                      </>
-                    )}
-
-                    {severity && result !== "Error" && (
-                      <div className={`mt-4 rounded-2xl border p-4 text-left ${isDark ? "border-slate-700 bg-slate-800/60" : "border-slate-200 bg-slate-50"}`}>
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <p className="text-xs font-semibold uppercase tracking-wide opacity-70">Severity</p>
-                            <p className={`text-xl font-bold ${severityTone}`}>{severity.level}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xs font-semibold uppercase tracking-wide opacity-70">Score</p>
-                            <p className={`text-2xl font-black ${severityTone}`}>{severity.score.toFixed(1)}/10</p>
-                          </div>
-                        </div>
-                        {severity.indicators?.length > 0 && (
-                          <div className="mt-3">
-                            <p className="text-xs font-semibold uppercase tracking-wide opacity-70 mb-2">Threat Indicators</p>
-                            <div className="flex flex-wrap gap-2">
-                              {severity.indicators.map((indicator) => (
-                                <span key={indicator} className={`rounded-full px-2.5 py-1 text-xs font-semibold ${isDark ? "bg-slate-700 text-slate-100" : "bg-white text-slate-700 border border-slate-200"}`}>
-                                  {indicator}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        {severity.breakdown && (
-                          <div className="mt-3">
-                            <p className="text-xs font-semibold uppercase tracking-wide opacity-70 mb-2">Breakdown</p>
-                            <div className="grid gap-2 text-sm">
-                              {Object.entries(severity.breakdown).filter(([key]) => key !== "total_score").map(([key, value]) => (
-                                <div key={key} className="flex items-center justify-between rounded-lg bg-black/5 dark:bg-white/5 px-2.5 py-1.5">
-                                  <span className="capitalize">{key.replace(/_/g, " ")}</span>
-                                  <span className="font-semibold">{Number(value).toFixed(1)}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {result && confidence !== null && result !== "Error" && (
-                      <div className="mt-4 text-left">
-                        <p className="text-xs font-semibold mb-1 opacity-70">Model Confidence: {confidencePct}%</p>
-                        <div className={`w-full rounded-full h-2 ${isDark ? "bg-slate-800" : "bg-slate-200"}`}>
-                          <div className={`h-3 rounded-full transition-all duration-500 ${result === "ham" || result === "safe" ? "bg-green-500" : result === "spam" || result === "malicious" ? "bg-red-500" : "bg-orange-500"}`} style={{ width: `${confidencePct}%` }} />
-                        </div>
-                    {/* Pattern Tags - Show only for spam/malicious/smishing */}
-                    {(result === "spam" || result === "malicious" || result === "smishing") && detectPatterns(text).length > 0 && (
-                      <div className="mt-4 pt-3 border-t border-slate-700/20">
-                       <p className="text-xs font-semibold opacity-70 mb-2 flex items-center gap-1">
-                       <span>🚨</span> Spam Indicators
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {detectPatterns(text).map((pattern, index) => (
-                         <span 
-                          key={index}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border
-                          ${pattern.severity === 'high' 
-                          ? 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-400 dark:border-red-700' 
-                          : pattern.severity === 'medium' 
-                          ? 'bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-700'
-                          : 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700'}`}
-                        >
-                          <span>{pattern.icon}</span>
-                         <span>{pattern.label}</span>
-                      </span>
-                    ))}
-
-                    {/* Emoji Sentiment Analysis */}
-                    {result && result !== "Error" && text && emojiAnalysis.count > 0 && (
-                     <div className="mt-4 pt-3 border-t border-slate-700/20">
-                      <p className="text-xs font-semibold opacity-70 mb-2 flex items-center gap-1">
-                         <span>😊</span> Emoji Sentiment
-                      </p>
-                     <div className="flex flex-wrap items-center gap-3">
-                        <span className="text-lg">
-                        {emojiAnalysis.emojis.join(' ')}
-                         </span>
-                         <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                         emojiAnalysis.sentiment === 'positive'
-                         ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                         : emojiAnalysis.sentiment === 'negative'
-                         ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                         : 'bg-gray-100 text-gray-700 dark:bg-gray-800/30 dark:text-gray-400'
-                        }`}>
-                        {emojiAnalysis.sentiment === 'positive' && '😊 Positive'}
-                        {emojiAnalysis.sentiment === 'negative' && '😢 Negative'}
-                        {emojiAnalysis.sentiment === 'neutral' && '😐 Neutral'}
-                        </span>
-                        {emojiAnalysis.spamDetected && (
-                         <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-500 text-white">
-                          ⚠️ Spam Emojis
-                         </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-                        <div className="mb-5">
-                          <p className="text-sm opacity-70 mb-2">Risk Level</p>
-                          <span className={`px-4 py-2 rounded-full text-sm font-semibold ${riskLevel === "Low" ? "bg-green-100 text-green-700" : riskLevel === "Medium" ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"}`}>
-                            {riskLevel === "Low" && "🟢 Low"}
-                            {riskLevel === "Medium" && "🟠 Medium"}
-                            {riskLevel === "High" && "🔴 High"}
-                          </span>
-                        </div>
-
-                        <div className="mt-4 mb-4">
-                          <button
-                            onClick={() => {
-                              const fullReport = `📊 Spam Detection Report\n─────────────────────\n🔍 Prediction: ${result === 'ham' || result === 'safe' ? '✅ Safe' : result === 'spam' || result === 'malicious' ? '🚫 Spam/Malicious' : result === 'smishing' ? '⚠️ Fraud' : '⚠️ Error'}\n📝 Message: ${text}\n📈 Confidence: ${confidence ? confidencePct + '%' : 'N/A'}\n⚠️ Risk Level: ${riskLevel}\n📅 Date: ${new Date().toLocaleString()}\n─────────────────────\nPowered by Spam Detection System`;
-                              navigator.clipboard.writeText(fullReport);
-                              setCopied(true);
-                              setTimeout(() => setCopied(false), 2000);
-                            }}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 w-full justify-center ${isDark ? "bg-slate-700 hover:bg-slate-600 text-slate-200" : "bg-slate-200 hover:bg-slate-300 text-slate-700"}`}
-                          >
-                            {copied ? '✅ Copied!' : '📋 Copy Full Report'}
-                          </button>
-                        </div>
-
-                        <p className="text-sm opacity-75 leading-relaxed">
-                          {(result === "spam" || result === "smishing" || result === "malicious") && "This content contains characteristics commonly found in spam, phishing, or malicious attacks."}
-                          {(result === "ham" || result === "safe") && "No suspicious patterns were detected in this content."}
-                        </p>
-                      </div>
-                    )}
-
-                    {explanation && result !== "Error" && (
-                      <PredictionExplanation explanation={explanation} result={result} />
-                    )}
-
-                    {result && result !== "Error" && type !== "url" && (
-                      <FeedbackWidget key={`${text}|${result}|${confidence}`} text={text} predictedLabel={result} darkMode={isDark} historyId={historyId} />
-                    )}
-
-                    <button
-                      onClick={() => {
-                      setText("");
-                      setResult("");
-                      setHistoryId(null);
-                      setConfidence(null);
-                      setExplanation(null);
-                      setUrlRisk(null);
-                      setErrorInfo(null);
-                      setCopied(false);
-                      setType("message");
-                      }}
-                    >
-  Reset
-</button>
-                  </div>
-                )}
-
-                {showDeSpamify && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                  <div className="w-full max-w-2xl">
-                    <DeSpamify
-                    text={text}
-                    darkMode={isDark}
-                    onClose={() => setShowDeSpamify(false)}
-                  />
-                  </div>
-                </div>
-                )}
-
-
-                <FeatureImportance darkMode={isDark} />
-                <CensorshipMode text={text} darkMode={isDark} />
-
-                {/* SPAM WORD OF THE DAY */}
-                {wordOfDay && (
-                  <div className={`mt-6 p-4 rounded-xl border ${isDark ? 'bg-slate-800/30 border-slate-700' : 'bg-white/40 border-slate-200'}`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-semibold opacity-70">📚 Spam Word of the Day</h3>
-                      <button onClick={fetchWordOfTheDay} className="text-xs opacity-50 hover:opacity-100 transition-opacity" title="Refresh word of the day">
-                        🔄
-                      </button>
-                    </div>
-                    {wordLoading ? (
-                      <div className="h-8 w-48 bg-slate-300 rounded animate-pulse"></div>
-                    ) : (
-                      <>
-                        <div className="flex items-center gap-3">
-                          <span className={`text-2xl font-bold ${isDark ? 'text-yellow-400' : 'text-yellow-600'}`}>
-                            {wordOfDay.word || 'No spam detected today'}
-                          </span>
-                          {wordOfDay.count && (
-                            <span className="text-sm opacity-60">
-                              {wordOfDay.count} {wordOfDay.count === 1 ? 'detection' : 'detections'}
-                            </span>
-                          )}
-                        </div>
-                        {wordOfDay.definition && (
-                          <p className="text-sm mt-2 opacity-75 leading-relaxed">{wordOfDay.definition}</p>
-                        )}
-                        {wordOfDay.context && (
-                          <div className={`mt-2 p-2 rounded text-xs ${isDark ? 'bg-slate-900/50' : 'bg-slate-100/50'}`}>
-                            <span className="opacity-60">Example: </span>
-                            <span className="italic">"{wordOfDay.context}"</span>
-                          </div>
-                        )}
-                        {wordOfDay.tips && (
-                          <div className={`mt-2 p-2 rounded text-xs ${isDark ? 'bg-blue-900/20' : 'bg-blue-50'}`}>
-                            💡 {wordOfDay.tips}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                )}
-
-                <div className="mt-6 p-4 rounded-xl border text-left">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-semibold opacity-70">📈 Spam Detection Insights</span>
-                    <div className="flex items-center gap-2">
-                      {getEarnedBadges().map((badge) => (
-                        <span key={badge.day} className="text-lg" title={badge.name}>
-                          {badge.icon}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <Route path="/settings" element={<Settings />} />
-
-                <WordCloud darkMode={isDark} />
-              </>
-            ) : activeTab === "bulk" ? (
-              <BulkSpamDetection />
-            ) : activeTab === "insights" ? (
-              <SpamInsightsDashboard />
-            ) : activeTab === "scanner" ? (
-              <EmailScannerDashboard />
-            ) : activeTab === "rules" ? (
-              <RulesManager />
-            ) : activeTab === "history" ? (
-              <History />
-            ) : (
-              <EmailHeaderAnalyzer />
-            )}
-
-            {showCelebration && (
-              <div className="celebration-modal" style={{
-                position: 'fixed',
-                inset: 0,
-                background: 'rgba(0,0,0,0.6)',
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                zIndex: 1000
-              }}>
-                <div style={{
-                  background: 'white',
-                  padding: '40px',
-                  borderRadius: '20px',
-                  textAlign: 'center',
-                  maxWidth: '400px',
-                  width: '90%'
-                }}>
-                  <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🎉</div>
-                  <h2 style={{ color: '#7c3aed' }}>First Prediction Complete!</h2>
-                  <p style={{ color: '#6b7280', marginBottom: '1.5rem' }}>
-                    You're on your way to becoming a spam detection expert!
-                  </p>
+                {/* De-Spamify Button */}
+                {text && (
                   <button
-                    onClick={() => setShowCelebration(false)}
-                    style={{
-                      padding: '10px 30px',
-                      background: '#7c3aed',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '8px',
-                      cursor: 'pointer'
-                    }}
+                    onClick={() => setShowDeSpamify(!showDeSpamify)}
+                    className="w-full mt-3 py-2.5 rounded-xl font-medium transition-all active:scale-95 bg-blue-500 hover:bg-blue-600 text-white"
                   >
-                    Continue Learning →
+                    {showDeSpamify ? 'Hide De-Spamify' : '🛡️ De-Spamify Message'}
                   </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </>
-    )}
-  </div>
-)}
+                )}
 
-              <FeatureImportance darkMode={isDark} />
-            </>
-          ) : activeTab === "bulk" ? (
-            <BulkSpamDetection />
-          ) : activeTab === "insights" ? (
-            <SpamInsightsDashboard />
-          ) : activeTab === "scanner" ? (
-            <EmailScannerDashboard />
-          ) : activeTab === "rules" ? (
-            <RulesManager />
-          ) : activeTab === "admin-rules" ? (
-            <AdminRulesManager />
-          ) : activeTab === "admin-feedback" ? (
-            <AdminFeedbackView />
-          ) : activeTab === "history" ? (
-            <History />
-          ) : (
-            <EmailHeaderAnalyzer />
-          )}
-          <WordCloud darkMode={isDark} />
+                {/* De-Spamify Component */}
+                {showDeSpamify && text && (
+                  <div className="mt-4">
+                    <DeSpamify text={text} darkMode={isDark} onClose={() => setShowDeSpamify(false)} />
+                  </div>
+                )}
+
+                {/* Loading Skeleton */}
+                {loading && (
+                  <div className="mt-6 w-full">
+                    <Skeleton count={3} baseColor={isDark ? '#1e293b' : '#e2e8f0'} highlightColor={isDark ? '#334155' : '#f1f5f9'} />
+                  </div>
+                )}
+
+                {/* Result */}
+                {result && !loading && (
+                  <div className="mt-6 w-full text-left">
+                    <ResultBadge result={result} confidence={confidencePct} severity={severity} />
+                    
+                    {explanation && (
+                      <PredictionExplanation 
+                        explanation={explanation} 
+                        result={result} 
+                        confidencePct={confidencePct}
+                      />
+                    )}
+
+                    {urlRisk && (
+                      <URLPreview url={text} riskScore={urlRisk} />
+                    )}
+                  </div>
+                )}
+
+                {/* Error Info */}
+                {errorInfo && (
+                  <div className="mt-4 p-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-2xl text-red-700 dark:text-red-300">
+                    <p className="font-bold">{errorInfo.title}</p>
+                    <p className="text-sm">{errorInfo.message}</p>
+                    {errorInfo.retryable && (
+                      <button
+                        onClick={handlePredict}
+                        className="mt-2 px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-bold transition"
+                      >
+                        Retry
+                      </button>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Other Tabs */}
+            {activeTab === "bulk" && <BulkSpamDetection darkMode={isDark} />}
+            {activeTab === "insights" && <SpamInsightsDashboard darkMode={isDark} />}
+            {activeTab === "authenticity" && <EmailHeaderAnalyzer darkMode={isDark} />}
+            {activeTab === "scanner" && <EmailScannerDashboard darkMode={isDark} />}
+            {activeTab === "rules" && <RulesManager darkMode={isDark} />}
+            {activeTab === "admin-rules" && user?.role === 'admin' && <AdminRulesManager darkMode={isDark} />}
+            {activeTab === "admin-feedback" && user?.role === 'admin' && <AdminFeedbackView darkMode={isDark} />}
+          </div>
         </div>
       </div>
-      </div>
-      <Footer darkMode={isDark} />
-      <Chatbot />
+
+      {/* Footer */}
+      <Footer isDark={isDark} />
+
+      {/* Chatbot */}
+      <Chatbot darkMode={isDark} />
     </div>
   );
 }
+
 export default App;
