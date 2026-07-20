@@ -5,12 +5,13 @@ import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import api from "../utils/axiosInstance";
 import "../App.css";
+import { Settings } from './pages/Settings';
 import CensorshipMode from '../components/CensorshipMode';
 import FeatureImportance from "../components/FeatureImportance";
 import PredictionExplanation from "../components/PredictionExplanation";
 import History from "../components/History";
 import WordCloud from "../components/WordCloud";
-import ManipulationIndex from '../components/ManipulationIndex';
+import ManipulationIndex from './ManipulationIndex';
 import FeedbackWidget from "../components/FeedbackWidget";
 import Login from "./Login.jsx";
 import DeSpamify from '../components/DeSpamify';
@@ -29,11 +30,14 @@ import SpamPatternLibrary from '../components/SpamPatternLibrary';
 import URLPreview from '../components/URLPreview';
 import InstallAppButton from "../components/InstallAppButton";
 import RulesManager from "../components/RulesManager";
+import AdminRulesManager from "../components/AdminRulesManager";
+import AdminFeedbackView from "../components/AdminFeedbackView";
 
 function App() {
   const navigate = useNavigate();
   const [text, setText] = useState("");
   const [result, setResult] = useState("");
+  const [historyId, setHistoryId] = useState(null);
   const [confidence, setConfidence] = useState(null);
   const [severity, setSeverity] = useState(null);
   const [explanation, setExplanation] = useState(null);
@@ -370,6 +374,7 @@ const analyzeEmojiSentiment = (text) => {
         localStorage.setItem('firstPrediction', 'true');
       }
       setResult(res.data.prediction);
+      setHistoryId(res.data.historyId || null);
       setConfidence(res.data.confidence ?? null);
       setSeverity(res.data.severity || null);
       setExplanation(res.data.explanation || null);
@@ -665,6 +670,22 @@ const analyzeEmojiSentiment = (text) => {
               </button>
                 Rules Manager
               </button>
+              {user?.role === 'admin' && (
+                <>
+                  <button
+                    onClick={() => setActiveTab("admin-rules")}
+                    className={`pb-1 px-4 transition-all border-b-2 ${activeTab === "admin-rules" ? "border-current opacity-100 text-purple-500" : "border-transparent opacity-50 hover:opacity-75"}`}
+                  >
+                    Admin Rules
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("admin-feedback")}
+                    className={`pb-1 px-4 transition-all border-b-2 ${activeTab === "admin-feedback" ? "border-current opacity-100 text-purple-500" : "border-transparent opacity-50 hover:opacity-75"}`}
+                  >
+                    Admin Feedback
+                  </button>
+                </>
+              )}
               <button
                 onClick={() => setActiveTab("history")}
                 className={`pb-1 px-4 transition-all border-b-2 ${activeTab === "history" ? "border-current opacity-100" : "border-transparent opacity-50 hover:opacity-75"}`}
@@ -1005,13 +1026,14 @@ const analyzeEmojiSentiment = (text) => {
                     )}
 
                     {result && result !== "Error" && type !== "url" && (
-                      <FeedbackWidget key={`${text}|${result}|${confidence}`} text={text} predictedLabel={result} darkMode={isDark} />
+                      <FeedbackWidget key={`${text}|${result}|${confidence}`} text={text} predictedLabel={result} darkMode={isDark} historyId={historyId} />
                     )}
 
                     <button
                       onClick={() => {
                       setText("");
                       setResult("");
+                      setHistoryId(null);
                       setConfidence(null);
                       setExplanation(null);
                       setUrlRisk(null);
@@ -1041,40 +1063,118 @@ const analyzeEmojiSentiment = (text) => {
                 <FeatureImportance darkMode={isDark} />
                 <CensorshipMode text={text} darkMode={isDark} />
 
-                  {wordOfDay && (
-  <div className={`mt-6 p-4 rounded-xl border ${isDark ? 'bg-slate-800/30 border-slate-700' : 'bg-white/40 border-slate-200'}`}>
-    <div className="flex items-center justify-between mb-2">
-      <h3 className="text-sm font-semibold opacity-70">📚 Spam Word of the Day</h3>
-      <button onClick={fetchWordOfTheDay} className="text-xs opacity-50 hover:opacity-100 transition-opacity" title="Refresh word of the day">
-        
-      </button>
-    </div>
-    {wordLoading ? (
-      <div className="h-8 w-48 bg-slate-300 rounded animate-pulse"></div>
-    ) : (
-      <>
-        <div className="flex items-center gap-3">
-          <span className={`text-2xl font-bold ${isDark ? 'text-yellow-400' : 'text-yellow-600'}`}>
-            {wordOfDay.word || 'No spam detected today'}
-          </span>
-          {wordOfDay.count && (
-            <span className="text-sm opacity-60">
-              {wordOfDay.count} {wordOfDay.count === 1 ? 'detection' : 'detections'}
-            </span>
-          )}
-        </div>
-        {wordOfDay.definition && (
-          <p className="text-sm mt-2 opacity-75 leading-relaxed">{wordOfDay.definition}</p>
-        )}
-        {wordOfDay.context && (
-          <div className={`mt-2 p-2 rounded text-xs ${isDark ? 'bg-slate-900/50' : 'bg-slate-100/50'}`}>
-            <span className="opacity-60">Example: </span>
-            <span className="italic">"{wordOfDay.context}"</span>
-          </div>
-        )}
-        {wordOfDay.tips && (
-          <div className={`mt-2 p-2 rounded text-xs ${isDark ? 'bg-blue-900/20' : 'bg-blue-50'}`}>
-             {wordOfDay.tips}
+                {/* SPAM WORD OF THE DAY */}
+                {wordOfDay && (
+                  <div className={`mt-6 p-4 rounded-xl border ${isDark ? 'bg-slate-800/30 border-slate-700' : 'bg-white/40 border-slate-200'}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-sm font-semibold opacity-70">📚 Spam Word of the Day</h3>
+                      <button onClick={fetchWordOfTheDay} className="text-xs opacity-50 hover:opacity-100 transition-opacity" title="Refresh word of the day">
+                        🔄
+                      </button>
+                    </div>
+                    {wordLoading ? (
+                      <div className="h-8 w-48 bg-slate-300 rounded animate-pulse"></div>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-3">
+                          <span className={`text-2xl font-bold ${isDark ? 'text-yellow-400' : 'text-yellow-600'}`}>
+                            {wordOfDay.word || 'No spam detected today'}
+                          </span>
+                          {wordOfDay.count && (
+                            <span className="text-sm opacity-60">
+                              {wordOfDay.count} {wordOfDay.count === 1 ? 'detection' : 'detections'}
+                            </span>
+                          )}
+                        </div>
+                        {wordOfDay.definition && (
+                          <p className="text-sm mt-2 opacity-75 leading-relaxed">{wordOfDay.definition}</p>
+                        )}
+                        {wordOfDay.context && (
+                          <div className={`mt-2 p-2 rounded text-xs ${isDark ? 'bg-slate-900/50' : 'bg-slate-100/50'}`}>
+                            <span className="opacity-60">Example: </span>
+                            <span className="italic">"{wordOfDay.context}"</span>
+                          </div>
+                        )}
+                        {wordOfDay.tips && (
+                          <div className={`mt-2 p-2 rounded text-xs ${isDark ? 'bg-blue-900/20' : 'bg-blue-50'}`}>
+                            💡 {wordOfDay.tips}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+
+                <div className="mt-6 p-4 rounded-xl border text-left">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold opacity-70">📈 Spam Detection Insights</span>
+                    <div className="flex items-center gap-2">
+                      {getEarnedBadges().map((badge) => (
+                        <span key={badge.day} className="text-lg" title={badge.name}>
+                          {badge.icon}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <Route path="/settings" element={<Settings />} />
+
+                <WordCloud darkMode={isDark} />
+              </>
+            ) : activeTab === "bulk" ? (
+              <BulkSpamDetection />
+            ) : activeTab === "insights" ? (
+              <SpamInsightsDashboard />
+            ) : activeTab === "scanner" ? (
+              <EmailScannerDashboard />
+            ) : activeTab === "rules" ? (
+              <RulesManager />
+            ) : activeTab === "history" ? (
+              <History />
+            ) : (
+              <EmailHeaderAnalyzer />
+            )}
+
+            {showCelebration && (
+              <div className="celebration-modal" style={{
+                position: 'fixed',
+                inset: 0,
+                background: 'rgba(0,0,0,0.6)',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                zIndex: 1000
+              }}>
+                <div style={{
+                  background: 'white',
+                  padding: '40px',
+                  borderRadius: '20px',
+                  textAlign: 'center',
+                  maxWidth: '400px',
+                  width: '90%'
+                }}>
+                  <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🎉</div>
+                  <h2 style={{ color: '#7c3aed' }}>First Prediction Complete!</h2>
+                  <p style={{ color: '#6b7280', marginBottom: '1.5rem' }}>
+                    You're on your way to becoming a spam detection expert!
+                  </p>
+                  <button
+                    onClick={() => setShowCelebration(false)}
+                    style={{
+                      padding: '10px 30px',
+                      background: '#7c3aed',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Continue Learning →
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </>
@@ -1090,6 +1190,14 @@ const analyzeEmojiSentiment = (text) => {
             <SpamInsightsDashboard />
           ) : activeTab === "scanner" ? (
             <EmailScannerDashboard />
+          ) : activeTab === "rules" ? (
+            <RulesManager />
+          ) : activeTab === "admin-rules" ? (
+            <AdminRulesManager />
+          ) : activeTab === "admin-feedback" ? (
+            <AdminFeedbackView />
+          ) : activeTab === "history" ? (
+            <History />
           ) : (
             <EmailHeaderAnalyzer />
           )}
