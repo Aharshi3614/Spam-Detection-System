@@ -623,6 +623,7 @@ function App() {
                   ) : (
                     `Analyze ${type === "url" ? "URL" : type}`
                   )}
+                  {loading ? "Analyzing..." : `Analyze ${type === "url" ? "URL" : type}`}
                 </button>
 
                 {/* Loading Skeleton */}
@@ -635,6 +636,7 @@ function App() {
                       <Skeleton height={10} />
                     </div>
                   </div>
+                </div>
                 )}
 
                 {/* Error Section */}
@@ -839,6 +841,18 @@ function App() {
                   <FeedbackWidget key={`${text}|${result}|${confidence}`} text={text} predictedLabel={result} darkMode={isDark} historyId={historyId} />
                 )}
               </>
+            ) : activeTab === "bulk" ? (
+              <BulkSpamDetection />
+            ) : activeTab === "insights" ? (
+              <SpamInsightsDashboard />
+            ) : activeTab === "scanner" ? (
+              <EmailScannerDashboard />
+            ) : activeTab === "rules" ? (
+              <RulesManager />
+            ) : activeTab === "history" ? (
+              <History />
+            ) : (
+              <EmailHeaderAnalyzer />
             )}
 
             {/* Other Tabs */}
@@ -911,6 +925,32 @@ function App() {
               </div>
             )}
           </div>
+        )}
+      </>
+    )}
+  </div>
+)}
+
+              <FeatureImportance darkMode={isDark} />
+            </>
+          ) : activeTab === "bulk" ? (
+            <BulkSpamDetection />
+          ) : activeTab === "insights" ? (
+            <SpamInsightsDashboard />
+          ) : activeTab === "scanner" ? (
+            <EmailScannerDashboard />
+          ) : activeTab === "rules" ? (
+            <RulesManager />
+          ) : activeTab === "admin-rules" ? (
+            <AdminRulesManager />
+          ) : activeTab === "admin-feedback" ? (
+            <AdminFeedbackView />
+          ) : activeTab === "history" ? (
+            <History />
+          ) : (
+            <EmailHeaderAnalyzer />
+          )}
+          <WordCloud darkMode={isDark} />
         </div>
       </div>
 
@@ -919,5 +959,4 @@ function App() {
     </div>
   );
 }
-
 export default App;
