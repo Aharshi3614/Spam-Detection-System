@@ -13,7 +13,6 @@ const {
 
 const { protect } = require("../middleware/authMiddleware");
 const Prediction = require('../models/Prediction');
-
 router.use(protect);
 router.get("/summary", getSummary);
 router.get("/trends", getTrends);

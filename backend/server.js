@@ -12,6 +12,7 @@ validateEnv(); // Validate environment variables
 dns.setServers(["8.8.8.8", "1.1.1.1"]); // ensure SRV records resolve on all networks
 const express = require("express");
 const seedAdminUser = require("./seeders/adminSeeder");
+const { refreshAdminRulesCache } = require("./utils/adminRuleEvaluator");
 const { getHealthStatus } = require('./utils/healthCheck');
 const cors = require("cors");
 const config = require('./config');
@@ -27,7 +28,6 @@ const { corsOptions } = require('./config/corsConfig');
 require('./jobs/archivalCron');
 require('./jobs/webhookRetryCron');
 const { preventCacheStampede } = require('./middleware/cacheMiddleware');
-
 const adversarialRoutes = require('./routes/adversarialRoutes');
 app.use('/api/adversarial', adversarialRoutes);
 
@@ -38,6 +38,10 @@ app.use('/api/evomail', evoMailRoutes);
 // ===== STARTUP TIMER =====
 const SERVER_START_TIME = Date.now();
 const startupLogs = [];
+// Add Poisoning Defense routes
+const poisoningRoutes = require('./routes/poisoningRoutes');
+app.use('/api/poisoning', poisoningRoutes);
+
 // Add VBSF routes
 const visualRoutes = require('./routes/visualRoutes');
 app.use('/api/visual', visualRoutes);
@@ -50,6 +54,7 @@ app.use('/api/evomail', evoMailRoutes);
 
 const healthRoutes = require("./routes/healthRoutes");
 const predictionRoutes = require("./routes/predictionRoutes");
+const feedbackRoutes = require('./routes/feedbackRoutes');
 const emailIntegrationRoutes = require("./routes/emailIntegrationRoutes");
 const imapRoutes = require("./routes/imapRoutes");
 const utilityRoutes = require("./routes/utilityRoutes");
@@ -83,6 +88,7 @@ const app = express();
 // Apply standard throttling to the heavy ML prediction route
 const { apiLimiter } = require('./middleware/rateLimiter');
 app.use('/predict', apiLimiter);
+app.use('/api', feedbackRoutes);
 
 // Trust the first proxy so express-rate-limit correctly identifies user IPs
 
@@ -129,6 +135,7 @@ const connectWithRetry = async (retries = 5, delay = 5000) => {
       logger.info(`✅ MongoDB connected successfully (attempt ${attempt})`);
       monitorConnectionPool();
       seedAdminUser();
+      refreshAdminRulesCache();
       return true;
     } catch (err) {
       logger.error(`❌ MongoDB connection attempt ${attempt} failed:`, err.message);
@@ -244,7 +251,33 @@ const historyRoutes = require("./routes/historyRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
 const chatRoutes = require("./routes/chatRoutes");
 const ruleRoutes = require("./routes/ruleRoutes");
+const adminRuleRoutes = require("./routes/adminRuleRoutes");
+const feedbackAdminRoutes = require("./routes/feedbackAdminRoutes");
 const reportRoutes = require("./routes/reportRoutes");
+const jobRoutes = require("./routes/jobRoutes");
+
+const { createBullBoard } = require('@bull-board/api');
+const { BullMQAdapter } = require('@bull-board/api/bullMQAdapter');
+const { ExpressAdapter } = require('@bull-board/express');
+const { predictionQueue } = require('./jobs/predictionQueue');
+
+const serverAdapter = new ExpressAdapter();
+serverAdapter.setBasePath('/admin/queues');
+createBullBoard({
+  queues: [new BullMQAdapter(predictionQueue)],
+  serverAdapter: serverAdapter,
+});
+
+const { protect } = require('./middleware/authMiddleware');
+const adminAuth = [protect, (req, res, next) => {
+    if (req.user && req.user.role === 'admin') {
+        next();
+    } else {
+        res.status(403).json({ error: 'Access denied, admin only' });
+    }
+}];
+
+app.use('/admin/queues', adminAuth, serverAdapter.getRouter());
 
 
 app.use("/", predictionRoutes);
@@ -258,7 +291,10 @@ app.use("/api/v1/history", historyRoutes);
 app.use("/api/v1/analytics", analyticsRoutes);
 app.use("/api/v1/chat", chatRoutes);
 app.use("/api/v1/rules", ruleRoutes);
+app.use("/api/v1/admin/rules", adminRuleRoutes);
+app.use("/api/v1/feedback/admin", feedbackAdminRoutes);
 app.use("/api/v1/reports", reportRoutes);
+app.use("/api/v1/jobs", jobRoutes);
 
 // Keep old routes for backward compatibility
 app.use("/api/auth", authRoutes);
