@@ -14,6 +14,26 @@ const {
   scanEmails
 } = require('../controllers/emailController');
 
+
+router.post('/email-breakdown', protect, async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    // Sample breakdown (replace with actual analysis)
+    const breakdown = {
+      spf: { score: 85, status: 'pass', details: 'SPF record validated' },
+      dkim: { score: 78, status: 'pass', details: 'DKIM signature verified' },
+      dmarc: { score: 70, status: 'warning', details: 'DMARC policy aligned' },
+      content: { score: 45, status: 'warning', details: 'Contains promotional words' },
+      overall: 70
+    };
+    
+    res.json(breakdown);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to analyze email' });
+  }
+});
+
 // ==================== GMAIL ROUTES ====================
 router.get("/gmail/auth-url", protect, gmailAuthUrl);
 router.get("/gmail/callback", gmailCallback);
