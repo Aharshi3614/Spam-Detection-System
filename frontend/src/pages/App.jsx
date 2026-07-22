@@ -14,6 +14,8 @@ import History from "../components/History";
 import WordCloud from "../components/WordCloud";
 import ManipulationIndex from './ManipulationIndex';
 import FeedbackWidget from "../components/FeedbackWidget";
+import Login from "./Login.jsx";
+import { OnboardingTour } from './components/OnboardingTour';
 import DeSpamify from '../components/DeSpamify';
 import EmailHeaderAnalyzer from "../components/EmailHeaderAnalyzer";
 import BulkSpamDetection from "../components/BulkSpamDetection";
@@ -840,6 +842,27 @@ function App() {
                 {result && result !== "Error" && type !== "url" && (
                   <FeedbackWidget key={`${text}|${result}|${confidence}`} text={text} predictedLabel={result} darkMode={isDark} historyId={historyId} />
                 )}
+                
+                <div className="App">
+                  <OnboardingTour />
+                </div>
+
+                <div className="mt-6 p-4 rounded-xl border text-left">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold opacity-70">📈 Spam Detection Insights</span>
+                    <div className="flex items-center gap-2">
+                      {getEarnedBadges().map((badge) => (
+                        <span key={badge.day} className="text-lg" title={badge.name}>
+                          {badge.icon}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <Route path="/settings" element={<Settings />} />
+
+                <WordCloud darkMode={isDark} />
               </>
             ) : activeTab === "bulk" ? (
               <BulkSpamDetection />
